@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body-md min-h-screen overflow-x-hidden flex;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background-color: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-card {
+    transition: all 0.2s;
+  }
+
+  .glass-card:hover {
+    backdrop-filter: blur(16px);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.02);
+  }
+  
+  .table-row-hover:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+}
