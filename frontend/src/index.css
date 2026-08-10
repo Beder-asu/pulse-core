@@ -6,6 +6,9 @@
   body {
     @apply bg-background text-on-surface font-body-md antialiased min-h-screen overflow-x-hidden flex;
   }
+  #root {
+    @apply w-full flex;
+  }
 }
 
 @layer utilities {

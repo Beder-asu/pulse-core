@@ -5,7 +5,7 @@ import TopBar from './TopBar';
 
 const MainLayout = () => {
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex w-full">
       <Sidebar />
       <div className="flex-1 ml-[280px] flex flex-col min-w-0">
         <TopBar />
