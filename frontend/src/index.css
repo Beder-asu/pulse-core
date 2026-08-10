@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-background text-on-surface font-body-md min-h-screen overflow-x-hidden flex;
+    @apply bg-background text-on-surface font-body-md antialiased min-h-screen overflow-x-hidden flex;
   }
 }
 

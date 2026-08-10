@@ -31,21 +31,21 @@ const Sidebar = () => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-2 flex flex-col gap-1 px-2">
+      <div className="flex-1 overflow-y-auto py-2 flex flex-col gap-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 ${
+              `flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
                 isActive
                   ? 'bg-secondary-container/10 text-secondary border-l-4 border-secondary'
-                  : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'
+                  : 'text-on-surface-variant hover:bg-white/5 hover:scale-[0.98]'
               }`
             }
           >
             <item.icon size={20} />
-            <span className="font-title-md text-title-md">{item.label}</span>
+            <span>{item.label}</span>
           </NavLink>
         ))}
       </div>

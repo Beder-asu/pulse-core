@@ -73,15 +73,15 @@ export default {
       },
       fontFamily: {
         "sans": ["Inter", "sans-serif"],
-        "body-md": ["Inter"],
-        "title-lg": ["Inter"],
-        "display-lg": ["Inter"],
-        "title-md": ["Inter"],
-        "body-lg": ["Inter"],
-        "label-md": ["Inter"],
-        "headline-md": ["Inter"],
-        "headline-lg": ["Inter"],
-        "data-mono": ["Inter"]
+        "body-md": ["Inter", "sans-serif"],
+        "title-lg": ["Inter", "sans-serif"],
+        "display-lg": ["Inter", "sans-serif"],
+        "title-md": ["Inter", "sans-serif"],
+        "body-lg": ["Inter", "sans-serif"],
+        "label-md": ["Inter", "sans-serif"],
+        "headline-md": ["Inter", "sans-serif"],
+        "headline-lg": ["Inter", "sans-serif"],
+        "data-mono": ["Inter", "sans-serif"]
       },
       fontSize: {
         "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
