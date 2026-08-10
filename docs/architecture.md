@@ -5,8 +5,9 @@ The Hospital Management System is a modern, distributed microservices applicatio
 
 ## Technology Stack
 - **Frontend:** React (Vite), Tailwind CSS v3, React Router
-- **Backend Gateway:** Nginx (Reverse Proxy & CORS Management)
-- **Microservices:** Node.js v22 (Express)
+- **Backend Gateway:** *Decision Pending* (Nginx Reverse Proxy vs GraphQL Apollo Gateway)
+- **Microservices:** Node.js v22 (Express) structured via **NPM Workspaces**
+- **Shared Code:** `@pulsecore/common` (Private NPM workspace package)
 - **Database:** MongoDB (Per-service isolation)
 - **Message Broker:** Apache Kafka (KRaft mode) for asynchronous event-driven communication
 - **Caching & Distributed Locks:** Redis

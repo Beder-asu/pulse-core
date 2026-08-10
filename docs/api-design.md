@@ -1,14 +1,16 @@
 # API Design
 
-## Gateway (Nginx)
-All incoming client requests hit the Nginx API Gateway on port `80`. Nginx handles CORS centrally and routes requests based on the URL prefix to the appropriate microservice.
-- `/api/patients/*` -> Patients Service (Port 3001)
-- `/api/doctors/*` -> Doctors Service (Port 3002)
-- `/api/appointments/*` -> Appointments Service (Port 3003)
-- `/api/lab/*` -> Lab Service (Port 3004)
-- `/api/pharmacy/*` -> Pharmacy Service (Port 3005)
-- `/api/billing/*` -> Billing Service (Port 3006)
-- `/api/notifications/*` -> Notification Service (Port 3007)
+## API Gateway (*Decision Pending*)
+Currently, the 7 microservices are running independently on local ports (`3001` to `3007`).
+We are evaluating whether to use **Nginx** (as a simple reverse proxy) or **GraphQL Apollo Gateway** to orchestrate client requests. 
+For now, the REST routes are mapped directly to the local ports:
+- `http://localhost:3001/api/patients/*` -> Patients Service
+- `http://localhost:3002/api/doctors/*` -> Doctors Service
+- `http://localhost:3003/api/appointments/*` -> Appointments Service
+- `http://localhost:3004/api/lab/*` -> Lab Service
+- `http://localhost:3005/api/pharmacy/*` -> Pharmacy Service
+- `http://localhost:3006/api/billing/*` -> Billing Service
+- `http://localhost:3007/api/notifications/*` -> Notification Service
 
 ## Authentication Strategy
 The system uses a decentralized JWT strategy.
