@@ -1,0 +1,318 @@
+version: "3.9"
+
+services:
+  # =========================
+  # INFRASTRUCTURE
+  # =========================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - patients-service
+      - doctors-service
+      - appointments-service
+      - lab-service
+      - pharmacy-service
+      - billing-service
+      - notification-service
+    networks:
+      - hospital-network
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - hospital-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+    networks:
+      - hospital-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hospital-network
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - hospital-network
+
+  # =========================
+  # OBSERVABILITY
+  # =========================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib
+    volumes:
+      - ./monitoring/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # gRPC
+      - "4318:4318"   # HTTP
+    depends_on:
+      - jaeger
+      - prometheus
+      - loki
+    networks:
+      - hospital-network
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    ports:
+      - "16686:16686" # UI
+      - "14268:14268" # Collector HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - hospital-network
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - hospital-network
+
+  loki:
+    image: grafana/loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - hospital-network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+    networks:
+      - hospital-network
+
+  # =========================
+  # APPLICATION SERVICES
+  # =========================
+  patients-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: patients
+    environment:
+      SERVICE_NAME: patients-service
+      SERVICE_PORT: 3001
+      MONGO_DB_NAME: patients_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - hospital-network
+
+  doctors-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: doctors
+    environment:
+      SERVICE_NAME: doctors-service
+      SERVICE_PORT: 3002
+      MONGO_DB_NAME: doctors_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - hospital-network
+
+  appointments-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: appointments
+    environment:
+      SERVICE_NAME: appointments-service
+      SERVICE_PORT: 3003
+      MONGO_DB_NAME: appointments_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - hospital-network
+
+  lab-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: lab
+    environment:
+      SERVICE_NAME: lab-service
+      SERVICE_PORT: 3004
+      MONGO_DB_NAME: lab_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - hospital-network
+
+  pharmacy-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: pharmacy
+    environment:
+      SERVICE_NAME: pharmacy-service
+      SERVICE_PORT: 3005
+      MONGO_DB_NAME: pharmacy_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - hospital-network
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: billing
+    environment:
+      SERVICE_NAME: billing-service
+      SERVICE_PORT: 3006
+      MONGO_DB_NAME: billing_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - hospital-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_PATH: notification
+    environment:
+      SERVICE_NAME: notification-service
+      SERVICE_PORT: 3007
+      MONGO_DB_NAME: notification_db
+      MONGO_URI: ${MONGO_URI}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+      - mailpit
+    networks:
+      - hospital-network
+
+# =========================
+# VOLUMES
+# =========================
+volumes:
+  mongodb_data:
+  kafka_data:
+  redis_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+
+# =========================
+# NETWORKS
+# =========================
+networks:
+  hospital-network:
+    driver: bridge
