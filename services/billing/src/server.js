@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const billingRoutes = require('./routes/billingRoutes');
+app.use('/api/billing', billingRoutes);
+
 app.get('/api/billing/health', (req, res) => {
   res.status(200).json({ status: 'Billing Service OK' });
 });

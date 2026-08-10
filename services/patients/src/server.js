@@ -9,6 +9,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const patientRoutes = require('./routes/patientRoutes');
+app.use('/api/patients', patientRoutes);
+
 // Basic Route
 app.get('/api/patients/health', (req, res) => {
   res.status(200).json({ status: 'Patients Service OK' });

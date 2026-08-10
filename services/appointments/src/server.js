@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const appointmentRoutes = require('./routes/appointmentRoutes');
+app.use('/api/appointments', appointmentRoutes);
+
 app.get('/api/appointments/health', (req, res) => {
   res.status(200).json({ status: 'Appointments Service OK' });
 });

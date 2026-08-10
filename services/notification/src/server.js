@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+
 app.get('/api/notifications/health', (req, res) => {
   res.status(200).json({ status: 'Notification Service OK' });
 });
