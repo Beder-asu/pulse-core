@@ -72,16 +72,16 @@ export default {
         "topbar-height": "64px"
       },
       fontFamily: {
-        "sans": ["Outfit", "sans-serif"],
-        "body-md": ["Outfit"],
-        "title-lg": ["Outfit"],
-        "display-lg": ["Outfit"],
-        "title-md": ["Outfit"],
-        "body-lg": ["Outfit"],
-        "label-md": ["Outfit"],
-        "headline-md": ["Outfit"],
-        "headline-lg": ["Outfit"],
-        "data-mono": ["Outfit"]
+        "sans": ["Inter", "sans-serif"],
+        "body-md": ["Inter"],
+        "title-lg": ["Inter"],
+        "display-lg": ["Inter"],
+        "title-md": ["Inter"],
+        "body-lg": ["Inter"],
+        "label-md": ["Inter"],
+        "headline-md": ["Inter"],
+        "headline-lg": ["Inter"],
+        "data-mono": ["Inter"]
       },
       fontSize: {
         "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
