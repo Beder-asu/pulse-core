@@ -1,10 +1,13 @@
+const logger = require('./logger');
+const connectDB = require('./db');
+const { protect, authorize } = require('./auth-middleware');
+const { errorHandler, notFound } = require('./error-handler');
+
 module.exports = {
-  authMiddleware: require('./auth-middleware'),
-  kafkaClient: require('./kafka-client'),
-  redisClient: require('./redis-client'),
-  mongooseClient: require('./mongoose-client'),
-  logger: require('./logger'),
-  errorHandler: require('./error-handler'),
-  idempotency: require('./idempotency'),
-  pagination: require('./pagination')
+  logger,
+  connectDB,
+  protect,
+  authorize,
+  errorHandler,
+  notFound
 };
