@@ -3,34 +3,19 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: "patients-service"
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ["patients-service:3001"]
+      - targets: ['localhost:9090']
 
-  - job_name: "doctors-service"
+  - job_name: 'hospital-services'
     static_configs:
-      - targets: ["doctors-service:3002"]
-
-  - job_name: "appointments-service"
-    static_configs:
-      - targets: ["appointments-service:3003"]
-
-  - job_name: "lab-service"
-    static_configs:
-      - targets: ["lab-service:3004"]
-
-  - job_name: "pharmacy-service"
-    static_configs:
-      - targets: ["pharmacy-service:3005"]
-
-  - job_name: "billing-service"
-    static_configs:
-      - targets: ["billing-service:3006"]
-
-  - job_name: "notification-service"
-    static_configs:
-      - targets: ["notification-service:3007"]
-
-  - job_name: "otel-collector"
-    static_configs:
-      - targets: ["otel-collector:8889"]
+      - targets:
+        - 'auth-service:3008'
+        - 'patients-service:3001'
+        - 'doctors-service:3002'
+        - 'appointments-service:3003'
+        - 'lab-service:3004'
+        - 'pharmacy-service:3005'
+        - 'billing-service:3006'
+        - 'notification-service:3007'

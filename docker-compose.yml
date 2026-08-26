@@ -1,318 +1,368 @@
-version: "3.9"
-
 services:
-  # =========================
-  # INFRASTRUCTURE
-  # =========================
-  nginx:
-    image: nginx:alpine
+  # ----------------------------------------
+  # Core Databases
+  # ----------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulsecore-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: replace-with-local-demo-password
     ports:
-      - "80:80"
+      - "5434:5432"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    networks:
+      - hospital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  db-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: pulsecore-db-setup
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=replace-with-local-demo-password
+    networks:
+      - hospital-network
     depends_on:
-      - patients-service
-      - doctors-service
-      - appointments-service
-      - lab-service
-      - pharmacy-service
-      - billing-service
-      - notification-service
-    networks:
-      - hospital-network
-
-  mongodb:
-    image: mongo:7
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - hospital-network
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-    volumes:
-      - kafka_data:/tmp/kraft-combined-logs
-    networks:
-      - hospital-network
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
+    container_name: pulsecore-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - hospital-network
+    restart: unless-stopped
 
-  mailpit:
-    image: axllent/mailpit
-    ports:
-      - "8025:8025"
-      - "1025:1025"
+  # ----------------------------------------
+  # Frontend and API Gateway
+  # ----------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pulsecore-frontend
+    expose:
+      - "80"
     networks:
       - hospital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-  # =========================
-  # OBSERVABILITY
-  # =========================
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib
-    volumes:
-      - ./monitoring/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+  api-gateway:
+    image: nginx:alpine
+    container_name: pulsecore-gateway
     ports:
-      - "4317:4317"   # gRPC
-      - "4318:4318"   # HTTP
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/cors.conf:/etc/nginx/cors.conf:ro
+    networks:
+      - hospital-network
+    restart: unless-stopped
     depends_on:
-      - jaeger
-      - prometheus
-      - loki
-    networks:
-      - hospital-network
+      frontend:
+        condition: service_healthy
+      db-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      patients-service:
+        condition: service_started
+      doctors-service:
+        condition: service_started
+      appointments-service:
+        condition: service_started
+      lab-service:
+        condition: service_started
+      pharmacy-service:
+        condition: service_started
+      billing-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
 
-  jaeger:
-    image: jaegertracing/all-in-one
+  # ----------------------------------------
+  # Message Broker (Kafka)
+  # ----------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: pulsecore-kafka
     ports:
-      - "16686:16686" # UI
-      - "14268:14268" # Collector HTTP
+      - "9092:9092"
     environment:
-      COLLECTOR_OTLP_ENABLED: true
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: ADUDsqPd7-TKj2h5CMXyrw
     networks:
       - hospital-network
+    restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus
+  # ----------------------------------------
+  # Microservices
+  # ----------------------------------------
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: pulsecore-auth
     ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks:
-      - hospital-network
-
-  loki:
-    image: grafana/loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
-      - loki_data:/loki
-    networks:
-      - hospital-network
-
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
+      - "3008:3008"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/auth_db
+      - SERVICE_PORT=3008
+      - SERVICE_NAME=auth-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - KAFKA_BROKERS=kafka:29092
+    networks:
+      - hospital-network
     depends_on:
-      - prometheus
-      - loki
-      - jaeger
-    networks:
-      - hospital-network
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
-  # =========================
-  # APPLICATION SERVICES
-  # =========================
   patients-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: patients
+      dockerfile: services/patients/Dockerfile
+    container_name: pulsecore-patients
+    ports:
+      - "3001:3001"
     environment:
-      SERVICE_NAME: patients-service
-      SERVICE_PORT: 3001
-      MONGO_DB_NAME: patients_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/patients_db
+      - PORT=3001
+      - SERVICE_NAME=patients-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   doctors-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: doctors
+      dockerfile: services/doctors/Dockerfile
+    container_name: pulsecore-doctors
+    ports:
+      - "3002:3002"
     environment:
-      SERVICE_NAME: doctors-service
-      SERVICE_PORT: 3002
-      MONGO_DB_NAME: doctors_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/doctors_db
+      - PORT=3002
+      - SERVICE_NAME=doctors-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   appointments-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: appointments
+      dockerfile: services/appointments/Dockerfile
+    container_name: pulsecore-appointments
+    ports:
+      - "3003:3003"
     environment:
-      SERVICE_NAME: appointments-service
-      SERVICE_PORT: 3003
-      MONGO_DB_NAME: appointments_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/appointments_db
+      - PORT=3003
+      - SERVICE_NAME=appointments-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - DOCTORS_SERVICE_URL=http://doctors-service:3002
+      - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   lab-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: lab
+      dockerfile: services/lab/Dockerfile
+    container_name: pulsecore-lab
+    ports:
+      - "3004:3004"
     environment:
-      SERVICE_NAME: lab-service
-      SERVICE_PORT: 3004
-      MONGO_DB_NAME: lab_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/lab_db
+      - PORT=3004
+      - SERVICE_NAME=lab-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   pharmacy-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: pharmacy
+      dockerfile: services/pharmacy/Dockerfile
+    container_name: pulsecore-pharmacy
+    ports:
+      - "3005:3005"
     environment:
-      SERVICE_NAME: pharmacy-service
-      SERVICE_PORT: 3005
-      MONGO_DB_NAME: pharmacy_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/pharmacy_db
+      - PORT=3005
+      - SERVICE_NAME=pharmacy-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   billing-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: billing
+      dockerfile: services/billing/Dockerfile
+    container_name: pulsecore-billing
+    ports:
+      - "3006:3006"
     environment:
-      SERVICE_NAME: billing-service
-      SERVICE_PORT: 3006
-      MONGO_DB_NAME: billing_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/billing_db
+      - PORT=3006
+      - SERVICE_NAME=billing-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   notification-service:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: notification
+      dockerfile: services/notification/Dockerfile
+    container_name: pulsecore-notification
+    ports:
+      - "3007:3007"
     environment:
-      SERVICE_NAME: notification-service
-      SERVICE_PORT: 3007
-      MONGO_DB_NAME: notification_db
-      MONGO_URI: ${MONGO_URI}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-    depends_on:
-      - mongodb
-      - kafka
-      - redis
-      - mailpit
+      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/notification_db
+      - PORT=3007
+      - SERVICE_NAME=notification-service
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_started
+    restart: unless-stopped
 
-# =========================
-# VOLUMES
-# =========================
+# ----------------------------------------
+# Observability Stack
+# ----------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pulsecore-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - hospital-network
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: pulsecore-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - hospital-network
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: pulsecore-jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686" # Web UI
+      - "4317:4317"   # OTLP gRPC default port
+      - "4318:4318"   # OTLP HTTP default port
+    networks:
+      - hospital-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pulsecore-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - hospital-network
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+    restart: unless-stopped
+
+# ----------------------------------------
+# Persistent Storage Volumes
+# ----------------------------------------
 volumes:
-  mongodb_data:
-  kafka_data:
+  postgres_data:
   redis_data:
-  prometheus_data:
-  loki_data:
-  grafana_data:
 
-# =========================
-# NETWORKS
-# =========================
+    # ----------------------------------------
+    # Custom Network
+    # ----------------------------------------
 networks:
   hospital-network:
     driver: bridge
