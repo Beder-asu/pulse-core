@@ -1,73 +1,41 @@
-const jwt = require('jsonwebtoken');
-const Patient = require('../models/Patient');
+const { PrismaClient } = require('@prisma/client');
 const { logger } = require('@pulsecore/common');
 
-// Generate JWT
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'fallback_secret', {
-    expiresIn: '30d',
-  });
-};
+const prisma = new PrismaClient();
 
-// @desc    Register a new patient
-// @route   POST /api/patients/register
-// @access  Public
-const registerPatient = async (req, res, next) => {
+// @desc    Create patient profile (Usually called via Kafka after Auth Registration)
+// @route   POST /api/patients/profile
+// @access  Private
+const createProfile = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { firstName, lastName, dateOfBirth, contactNumber, address, bloodGroup } = req.body;
+    const userId = req.body.userId || req.user.id;
 
-    const patientExists = await Patient.findOne({ email });
-    if (patientExists) {
+    if (!firstName || !lastName) {
       res.status(400);
-      throw new Error('Patient already exists');
+      throw new Error('First name and last name are required');
     }
 
-    const patient = await Patient.create({
-      email,
-      password,
-      firstName,
-      lastName,
+    const existing = await prisma.patientProfile.findUnique({ where: { userId } });
+    if (existing) {
+      res.status(400);
+      throw new Error('Profile already exists');
+    }
+
+    const profile = await prisma.patientProfile.create({
+      data: {
+        userId,
+        firstName,
+        lastName,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        contactNumber,
+        address,
+        bloodGroup
+      }
     });
 
-    if (patient) {
-      logger.info(`New patient registered: ${patient._id}`);
-      res.status(201).json({
-        _id: patient._id,
-        email: patient.email,
-        firstName: patient.firstName,
-        role: patient.role,
-        token: generateToken(patient._id, patient.role),
-      });
-    } else {
-      res.status(400);
-      throw new Error('Invalid patient data');
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Auth user & get token
-// @route   POST /api/patients/login
-// @access  Public
-const loginPatient = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    const patient = await Patient.findOne({ email }).select('+password');
-
-    if (patient && (await patient.matchPassword(password))) {
-      res.json({
-        _id: patient._id,
-        email: patient.email,
-        firstName: patient.firstName,
-        role: patient.role,
-        token: generateToken(patient._id, patient.role),
-      });
-    } else {
-      res.status(401);
-      throw new Error('Invalid email or password');
-    }
+    logger.info(`Patient profile created for user: ${userId}`);
+    res.status(201).json(profile);
   } catch (error) {
     next(error);
   }
@@ -78,20 +46,63 @@ const loginPatient = async (req, res, next) => {
 // @access  Private
 const getPatientProfile = async (req, res, next) => {
   try {
-    const patient = await Patient.findById(req.user.id);
-    if (patient) {
-      res.json(patient);
+    const profile = await prisma.patientProfile.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (profile) {
+      res.json(profile);
     } else {
       res.status(404);
-      throw new Error('Patient not found');
+      throw new Error('Patient profile not found');
     }
   } catch (error) {
     next(error);
   }
 };
 
+// @desc    Get all patient profiles
+// @route   GET /api/patients
+// @access  Private
+const getPatients = async (req, res, next) => {
+  try {
+    const patients = await prisma.patientProfile.findMany({
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+    });
+    res.json(patients);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get patient profile by profile id or user id
+// @route   GET /api/patients/:id
+// @access  Private
+const getPatientById = async (req, res, next) => {
+  try {
+    const profile = await prisma.patientProfile.findFirst({
+      where: {
+        OR: [
+          { id: req.params.id },
+          { userId: req.params.id }
+        ]
+      }
+    });
+
+    if (!profile) {
+      res.status(404);
+      throw new Error('Patient profile not found');
+    }
+
+    res.json(profile);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-  registerPatient,
-  loginPatient,
-  getPatientProfile
+  createProfile,
+  getPatientProfile,
+  getPatients,
+  getPatientById
 };

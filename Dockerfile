@@ -19,4 +19,4 @@ WORKDIR /app/services/${SERVICE_PATH}
 EXPOSE 3000
 
 # OpenTelemetry must be loaded before the app
-CMD ["node", "src/index.js"]
+CMD ["node", "src/server.js"]

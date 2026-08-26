@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, connectDB, errorHandler, notFound } = require('@pulsecore/common');
+const { logger, errorHandler, notFound, metricsMiddleware } = require('@pulsecore/common');
 
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Routes
 const doctorRoutes = require('./routes/doctorRoutes');
@@ -21,9 +22,6 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3002;
 
-connectDB(process.env.MONGO_URI || 'mongodb://localhost:27017/pulsecore_doctors')
-  .then(() => {
-    app.listen(PORT, () => {
+app.listen(PORT, () => {
       logger.info(`Doctors Service running on port ${PORT}`);
     });
-  });

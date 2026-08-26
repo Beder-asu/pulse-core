@@ -1,0 +1,51 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model NotificationType {
+  id            String         @id @default(uuid())
+  name          String         @unique // "APPOINTMENT_BOOKED", "LAB_RESULTS_READY", etc.
+  description   String?
+  notifications Notification[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model NotificationChannel {
+  id            String         @id @default(uuid())
+  name          String         @unique // "IN_APP", "EMAIL", "BOTH"
+  description   String?
+  notifications Notification[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Notification {
+  id            String              @id @default(uuid())
+  userId        String
+  patientId     String
+  typeId        String
+  type          NotificationType    @relation(fields: [typeId], references: [id])
+  title         String
+  message       String
+  isRead        Boolean             @default(false)
+  eventId       String              @unique // Correlates to the Kafka event ID
+  channelId     String
+  channel       NotificationChannel @relation(fields: [channelId], references: [id])
+  emailSent     Boolean             @default(false)
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([userId])
+}

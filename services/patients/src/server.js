@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, connectDB, errorHandler, notFound } = require('@pulsecore/common');
+const { logger, errorHandler, notFound, metricsMiddleware } = require('@pulsecore/common');
 
 // Load env vars (in production this comes from docker-compose)
 require('dotenv').config();
@@ -8,6 +8,7 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Routes
 const patientRoutes = require('./routes/patientRoutes');
@@ -25,9 +26,6 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 
 // Connect to DB then start server
-connectDB(process.env.MONGO_URI || 'mongodb://localhost:27017/pulsecore_patients')
-  .then(() => {
-    app.listen(PORT, () => {
+app.listen(PORT, () => {
       logger.info(`Patients Service running on port ${PORT}`);
     });
-  });

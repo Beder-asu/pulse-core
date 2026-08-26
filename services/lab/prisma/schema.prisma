@@ -1,0 +1,50 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LabStatus {
+  id          String     @id @default(uuid())
+  name        String     @unique // "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
+  description String?
+  orders      LabOrder[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model LabPriority {
+  id          String     @id @default(uuid())
+  name        String     @unique // "ROUTINE", "URGENT", "STAT"
+  description String?
+  orders      LabOrder[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model LabOrder {
+  id            String      @id @default(uuid())
+  patientId     String
+  doctorId      String
+  testName      String
+  statusId      String
+  status        LabStatus   @relation(fields: [statusId], references: [id])
+  priorityId    String
+  priority      LabPriority @relation(fields: [priorityId], references: [id])
+  result        String?
+  resultFileUrl String?
+  notes         String?
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([patientId])
+}

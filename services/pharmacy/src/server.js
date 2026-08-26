@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, connectDB, errorHandler, notFound } = require('@pulsecore/common');
+const { logger, errorHandler, notFound, metricsMiddleware } = require('@pulsecore/common');
 
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Routes
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
@@ -21,9 +22,6 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3005;
 
-connectDB(process.env.MONGO_URI || 'mongodb://localhost:27017/pulsecore_pharmacy')
-  .then(() => {
-    app.listen(PORT, () => {
+app.listen(PORT, () => {
       logger.info(`Pharmacy Service running on port ${PORT}`);
     });
-  });

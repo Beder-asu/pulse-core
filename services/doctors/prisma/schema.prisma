@@ -1,0 +1,47 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Department {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  description String?
+  doctors     DoctorProfile[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Specialization {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  description String?
+  doctors     DoctorProfile[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model DoctorProfile {
+  id               String         @id @default(uuid())
+  userId           String         @unique // Links to Auth Service User.id
+  firstName        String
+  lastName         String
+  departmentId     String
+  department       Department     @relation(fields: [departmentId], references: [id])
+  specializationId String
+  specialization   Specialization @relation(fields: [specializationId], references: [id])
+  contactNumber    String?
+  isAvailable      Boolean        @default(true)
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt        DateTime       @updatedAt
+}

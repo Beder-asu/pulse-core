@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 
+const normalizeRole = (role) => (role || '').toString().toUpperCase();
+
 const protect = (req, res, next) => {
   let token;
 
@@ -12,9 +14,18 @@ const protect = (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      // In a real production app, use a secure env variable for JWT_SECRET
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-      req.user = decoded;
+
+      if (process.env.ENABLE_DEV_AUTH_BYPASS === 'true' && token === 'dummy-dev-token-xyz') {
+        req.user = { id: process.env.DEV_USER_ID || 'PAT-123', role: normalizeRole(process.env.DEV_USER_ROLE || 'PATIENT') };
+        return next();
+      }
+
+      if (!process.env.JWT_SECRET) {
+        return res.status(500).json({ message: 'JWT_SECRET is not configured' });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = { ...decoded, role: normalizeRole(decoded.role) };
       next();
     } catch (error) {
       res.status(401).json({ message: 'Not authorized, token failed' });
@@ -25,8 +36,10 @@ const protect = (req, res, next) => {
 };
 
 const authorize = (...roles) => {
+  const allowedRoles = roles.map(normalizeRole);
   return (req, res, next) => {
-    if (!req.user || (!roles.includes(req.user.role) && req.user.role !== 'system')) {
+    const userRole = normalizeRole(req.user && req.user.role);
+    if (!req.user || (!allowedRoles.includes(userRole) && userRole !== 'SYSTEM')) {
       return res.status(403).json({ message: 'User role not authorized' });
     }
     next();

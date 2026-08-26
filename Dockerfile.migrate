@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+WORKDIR /app
+RUN apk add --no-cache openssl
+
+COPY package*.json ./
+COPY packages/common ./packages/common
+COPY services ./services
+COPY scripts ./scripts
+
+RUN npm install --workspaces --include-workspace-root
+
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+
+CMD ["npm", "run", "db:setup"]

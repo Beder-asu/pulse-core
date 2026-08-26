@@ -7,9 +7,22 @@
     "services/*"
   ],
   "scripts": {
-    "start:all": "concurrently \"npm run start --workspace=services/patients\" \"npm run start --workspace=services/doctors\" \"npm run start --workspace=services/appointments\" \"npm run start --workspace=services/lab\" \"npm run start --workspace=services/pharmacy\" \"npm run start --workspace=services/billing\" \"npm run start --workspace=services/notification\""
+    "start:all": "concurrently \"npm run start --workspace=@pulsecore/auth-service\" \"npm run start --workspace=patients-service\" \"npm run start --workspace=doctors-service\" \"npm run start --workspace=appointments-service\" \"npm run start --workspace=lab-service\" \"npm run start --workspace=pharmacy-service\" \"npm run start --workspace=billing-service\" \"npm run start --workspace=notification-service\"",
+    "db:push": "node scripts/migrate_all.js",
+    "db:seed": "node scripts/seed_all.js",
+    "db:setup": "npm run db:push && npm run db:seed",
+    "test:e2e": "node scripts/e2e_gateway_test.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.8.0",
+    "@opentelemetry/sdk-node": "^0.51.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.47.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.51.0",
+    "@opentelemetry/resources": "^1.24.0",
+    "@opentelemetry/semantic-conventions": "^1.24.0"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^5.10.0"
   }
 }

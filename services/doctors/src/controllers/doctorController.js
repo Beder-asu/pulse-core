@@ -1,79 +1,97 @@
-const jwt = require('jsonwebtoken');
-const Doctor = require('../models/Doctor');
+const { PrismaClient } = require('@prisma/client');
 const { logger } = require('@pulsecore/common');
 
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'fallback_secret', {
-    expiresIn: '30d',
-  });
-};
+const prisma = new PrismaClient();
 
-const registerDoctor = async (req, res, next) => {
+// @desc    Create doctor profile
+// @route   POST /api/doctors/profile
+// @access  Private (Admin/Staff/Self)
+const createProfile = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName, specialization, department } = req.body;
+    const { firstName, lastName, departmentId, specializationId, contactNumber } = req.body;
+    const userId = req.user.id;
 
-    const doctorExists = await Doctor.findOne({ email });
-    if (doctorExists) {
+    if (!firstName || !lastName || !departmentId || !specializationId) {
       res.status(400);
-      throw new Error('Doctor already exists');
+      throw new Error('First name, last name, department, and specialization are required');
     }
 
-    const doctor = await Doctor.create({
-      email, password, firstName, lastName, specialization, department
+    const existing = await prisma.doctorProfile.findUnique({ where: { userId } });
+    if (existing) {
+      res.status(400);
+      throw new Error('Profile already exists');
+    }
+
+    const profile = await prisma.doctorProfile.create({
+      data: {
+        userId,
+        firstName,
+        lastName,
+        departmentId,
+        specializationId,
+        contactNumber
+      },
+      include: {
+        department: true,
+        specialization: true
+      }
     });
 
-    if (doctor) {
-      logger.info(`New doctor registered: ${doctor._id}`);
-      res.status(201).json({
-        _id: doctor._id,
-        email: doctor.email,
-        firstName: doctor.firstName,
-        specialization: doctor.specialization,
-        role: doctor.role,
-        token: generateToken(doctor._id, doctor.role),
-      });
-    } else {
-      res.status(400);
-      throw new Error('Invalid doctor data');
-    }
+    logger.info(`Doctor profile created for user: ${userId}`);
+    res.status(201).json(profile);
   } catch (error) {
     next(error);
   }
 };
 
-const loginDoctor = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    const doctor = await Doctor.findOne({ email }).select('+password');
-
-    if (doctor && (await doctor.matchPassword(password))) {
-      res.json({
-        _id: doctor._id,
-        email: doctor.email,
-        firstName: doctor.firstName,
-        role: doctor.role,
-        token: generateToken(doctor._id, doctor.role),
-      });
-    } else {
-      res.status(401);
-      throw new Error('Invalid email or password');
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
+// @desc    Get all doctors
+// @route   GET /api/doctors
+// @access  Public
 const getDoctors = async (req, res, next) => {
   try {
-    const doctors = await Doctor.find({});
+    const doctors = await prisma.doctorProfile.findMany({
+      include: {
+        department: true,
+        specialization: true
+      }
+    });
     res.json(doctors);
   } catch (error) {
     next(error);
   }
 };
 
+// @desc    Get a doctor profile by profile id or user id
+// @route   GET /api/doctors/:id
+// @access  Public
+const getDoctorById = async (req, res, next) => {
+  try {
+    const doctor = await prisma.doctorProfile.findFirst({
+      where: {
+        OR: [
+          { id: req.params.id },
+          { userId: req.params.id }
+        ]
+      },
+      include: {
+        department: true,
+        specialization: true
+      }
+    });
+
+    if (!doctor) {
+      res.status(404);
+      throw new Error('Doctor profile not found');
+    }
+
+    res.json(doctor);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-  registerDoctor,
-  loginDoctor,
-  getDoctors
+  createProfile,
+  getDoctors,
+  getDoctorById
 };

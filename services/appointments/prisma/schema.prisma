@@ -1,0 +1,39 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model AppointmentStatus {
+  id           String        @id @default(uuid())
+  name         String        @unique // e.g. "SCHEDULED", "COMPLETED", "CANCELLED", "NO_SHOW"
+  description  String?
+  appointments Appointment[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Appointment {
+  id             String            @id @default(uuid())
+  patientId      String
+  doctorId       String
+  date           DateTime
+  timeSlot       String
+  statusId       String
+  status         AppointmentStatus @relation(fields: [statusId], references: [id])
+  reasonForVisit String
+  notes          String?
+  lockedAt       DateTime?
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+}

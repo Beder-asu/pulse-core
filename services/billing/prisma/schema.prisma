@@ -1,0 +1,53 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model InvoiceStatus {
+  id          String    @id @default(uuid())
+  name        String    @unique // "DRAFT", "ISSUED", "PAID", "CANCELLED"
+  description String?
+  invoices    Invoice[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  patientId   String
+  totalAmount Float         @default(0.0)
+  statusId    String
+  status      InvoiceStatus @relation(fields: [statusId], references: [id])
+  items       InvoiceItem[]
+  issuedAt    DateTime?
+  paidAt      DateTime?
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([patientId])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  sourceId    String   // Foreign key to Appointment/LabOrder/Prescription
+  sourceType  String   // "APPOINTMENT", "LAB", "PHARMACY"
+  description String
+  amount      Float
+}
+
+// Prevents Kafka from processing the same event twice
+model ProcessedEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  processedAt DateTime @default(now())
+}

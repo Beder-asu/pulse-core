@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, connectDB, errorHandler, notFound } = require('@pulsecore/common');
+const { logger, errorHandler, notFound, metricsMiddleware, kafka } = require('@pulsecore/common');
 
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Routes
 const appointmentRoutes = require('./routes/appointmentRoutes');
@@ -21,9 +22,24 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3003;
 
-connectDB(process.env.MONGO_URI || 'mongodb://localhost:27017/pulsecore_appointments')
-  .then(() => {
+const startServer = async () => {
+  try {
+    try {
+      await kafka.connectProducer();
+    } catch (error) {
+      if (process.env.KAFKA_REQUIRED === 'true') {
+        throw error;
+      }
+      logger.warn('Kafka producer unavailable; appointment events will be logged as failed until Kafka is restored', { error: error.message });
+    }
+
     app.listen(PORT, () => {
       logger.info(`Appointments Service running on port ${PORT}`);
     });
-  });
+  } catch (error) {
+    logger.error('Failed to start server', { error: error.message });
+    process.exit(1);
+  }
+};
+
+startServer();

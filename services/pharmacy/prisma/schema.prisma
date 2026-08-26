@@ -1,0 +1,61 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_BASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model PrescriptionStatus {
+  id            String         @id @default(uuid())
+  name          String         @unique // "PENDING", "DISPENSED", "CANCELLED"
+  description   String?
+  prescriptions Prescription[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Inventory {
+  id            String             @id @default(uuid())
+  medicineName  String             @unique
+  stockQuantity Int                @default(0)
+  unitPrice     Float
+  supplier      String?
+  expiryDate    DateTime?
+  medications   PrescribedMedication[]
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model Prescription {
+  id            String                 @id @default(uuid())
+  patientId     String
+  doctorId      String
+  statusId      String
+  status        PrescriptionStatus     @relation(fields: [statusId], references: [id])
+  medications   PrescribedMedication[]
+  notes         String?
+  createdBy     String?
+  editedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([patientId])
+}
+
+// Join table for Prescription -> Inventory medication lines.
+model PrescribedMedication {
+  id             String       @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  inventoryId    String
+  inventory      Inventory    @relation(fields: [inventoryId], references: [id])
+  dosage         String
+  frequency      String
+  durationDays   Int
+}
