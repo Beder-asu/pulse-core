@@ -1,40 +1,43 @@
 # API Design
 
-## API Gateway (*Decision Pending*)
-Currently, the 7 microservices are running independently on local ports (`3001` to `3007`).
-We are evaluating whether to use **Nginx** (as a simple reverse proxy) or **GraphQL Apollo Gateway** to orchestrate client requests. 
-For now, the REST routes are mapped directly to the local ports:
-- `http://localhost:3001/api/patients/*` -> Patients Service
-- `http://localhost:3002/api/doctors/*` -> Doctors Service
-- `http://localhost:3003/api/appointments/*` -> Appointments Service
-- `http://localhost:3004/api/lab/*` -> Lab Service
-- `http://localhost:3005/api/pharmacy/*` -> Pharmacy Service
-- `http://localhost:3006/api/billing/*` -> Billing Service
-- `http://localhost:3007/api/notifications/*` -> Notification Service
+## Gateway
 
-## Authentication Strategy
-The system uses a decentralized JWT strategy.
-1. A user logs in via the Patients Service (`POST /api/patients/auth/login`).
-2. The service generates a JWT signed with a highly secure shared secret.
-3. The client passes this JWT in the `Authorization: Bearer <token>` header for all subsequent requests.
-4. Each microservice independently verifies the JWT signature using the shared secret and checks the role (`req.user.role`).
-5. Internal service-to-service calls bypass JWT checking via a special `x-internal-call` header, secured by network isolation.
+The current gateway is Nginx. It routes browser requests from `/api/*` to the matching Express service:
 
-## Asynchronous Communication (Kafka Topics)
-To decouple services, the system relies on Kafka for domain events.
-- `patient.created`: Emitted when a new patient registers.
-- `appointment.booked` / `appointment.cancelled`: Emitted on schedule changes.
-- `lab.ordered` / `lab.resulted`: Tracks the lifecycle of laboratory requests.
-- `medication.dispensed`: Emitted when pharmacy issues medicine.
-- `invoice.finalized`: Emitted when billing completes an invoice.
+- `/api/auth/*` -> Auth Service (`3008`)
+- `/api/patients/*` -> Patients Service (`3001`)
+- `/api/doctors/*` -> Doctors Service (`3002`)
+- `/api/appointments/*` -> Appointments Service (`3003`)
+- `/api/lab/*` -> Lab Service (`3004`)
+- `/api/pharmacy/*` -> Pharmacy Service (`3005`)
+- `/api/billing/*` -> Billing Service (`3006`)
+- `/api/notifications/*` -> Notification Service (`3007`)
 
-## Idempotency
-To handle potential duplicate messages from Kafka (at-least-once delivery semantics), consumers use an Idempotency pattern:
-- The Billing Service maintains a `ProcessedEvent` collection in MongoDB.
-- Before processing an event (e.g., adding a charge), it attempts to insert the event ID. If it throws a unique constraint error, the event was already processed and is ignored.
+CORS handling is centralized in `nginx/cors.conf`.
 
-## Real-Time Streaming (SSE)
-Instead of WebSockets, Server-Sent Events (SSE) are used for unidirectional real-time data flow from the server to the client.
-Nginx is configured with `proxy_buffering off` for these specific endpoints:
-- `GET /api/lab/results/stream`
-- `GET /api/notifications/stream`
+## Authentication
+
+The Auth service owns registration and login. It hashes passwords with bcrypt and returns JWTs signed with `JWT_SECRET`.
+
+Protected services use `@pulsecore/common` middleware to:
+
+1. Read `Authorization: Bearer <token>`.
+2. Verify the JWT using `JWT_SECRET`.
+3. Normalize `req.user.role` to uppercase.
+4. Enforce route-level role checks where needed.
+
+The dummy development token is disabled by default and only works when `ENABLE_DEV_AUTH_BYPASS=true`.
+
+## Persistence
+
+Each service owns a separate PostgreSQL database and Prisma schema. The root `npm run db:setup` command runs `prisma db push` and service seeds for all databases. Docker Compose runs the same setup through the `db-setup` job.
+
+## Service Communication
+
+Appointments can synchronously verify doctor existence by calling the doctors service when `DOCTORS_SERVICE_URL` is configured.
+
+Kafka topic `hospital.events` currently carries `AppointmentCreated` events. The notification service consumes those events and persists in-app notifications. Other billing/lab/pharmacy event consumers are not implemented in the current code.
+
+## Error Shape
+
+Services use the shared Express error handler. Error responses return a JSON body with `message` and, outside production, `stack`.

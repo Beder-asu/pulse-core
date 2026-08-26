@@ -1,36 +1,36 @@
 # Frontend Design
 
 ## Overview
-The frontend is a Single Page Application (SPA) built to provide a seamless, responsive, and clinical-grade user experience for hospital staff and patients. It is built using React and styled with Tailwind CSS.
+
+The frontend is a Vite React single-page app for hospital staff workflows. It uses JWT authentication, the Nginx `/api` gateway, and live backend data for the dashboard, patients, appointments, lab, pharmacy, billing, patient history, and clinical summary screens.
 
 ## Tech Stack
-- **Framework:** React 18 (bootstrapped with Vite)
-- **Routing:** React Router v6
-- **Styling:** Tailwind CSS v3
-- **Icons:** Lucide React
-- **Date Manipulation:** date-fns
 
-## Directory Structure
-The frontend codebase follows a feature-based organization:
-- `/src/components/layout/`: Global layout wrappers (`Sidebar.jsx`, `TopBar.jsx`, `MainLayout.jsx`).
-- `/src/pages/`: Top-level route components for each major dashboard.
-- `/src/index.css`: Global CSS and Tailwind `@layer` configurations.
+- React 19
+- React Router
+- Axios
+- Tailwind CSS v3
+- Lucide React
 
-## Design System & Aesthetics
-The design language is based on a custom "Clinical Command Center" aesthetic (PulseCore HMS).
-- **Glassmorphism:** Extensive use of blurred backgrounds and translucent panels (`.glass-panel`, `.glass-card`) for a modern feel.
-- **Color Palette:** A highly customized Tailwind configuration using specific hex codes to create a deep blue/teal "surface" environment (`bg-background`, `text-on-surface`).
-- **Typography:** The `Inter` font family is used globally for high legibility, mapped to specific Material Design typography tokens (`body-md`, `headline-lg`, etc.).
+## Routes
 
-## Routing Strategy
-The application uses client-side routing.
-- `/login`: Standalone authentication page.
-- `/`: The main application shell (`MainLayout`), which includes the persistent Sidebar and TopBar.
-  - Sub-routes (e.g., `/lab`, `/pharmacy`, `/billing`) render inside the `MainLayout` container.
+- `/login`: Authenticates through `POST /api/auth/login`.
+- `/`: Staff dashboard assembled from appointments, notifications, inventory, and lab orders.
+- `/patients`: Patient list and patient profile creation.
+- `/patients/:id/history`: Combined patient timeline from appointments, lab, pharmacy, and billing.
+- `/appointments`: Appointment list.
+- `/appointments/book`: Appointment booking form populated from real patient and doctor records.
+- `/lab`: Lab order creation, listing, and result entry.
+- `/pharmacy`: Inventory, prescription creation, and dispensing.
+- `/billing`: Invoice creation, listing, and payment.
+- `/clinical`: Read-only operational summary.
 
-## Real-Time Updates
-The frontend connects to specific backend endpoints using Server-Sent Events (SSE) to receive real-time updates without polling:
-- `GET /api/lab/results/stream`: Pushes live lab results to the UI.
-- `GET /api/notifications/stream`: Pushes real-time alerts to the notification bell.
+## State And API Behavior
 
-*(Note: The frontend is currently in a mock-data phase, pending integration with the backend microservices).*
+`frontend/src/api/config.js` attaches the JWT from `localStorage` to API calls and redirects to `/login` after a `401`. The frontend no longer injects a dummy development token.
+
+Each domain page implements loading, empty, success, and error states. Form submissions refresh the affected list after the backend confirms the mutation.
+
+## Visual Direction
+
+The app keeps the existing PulseCore clinical command-center style: dark surface colors, translucent panels, compact operational cards, and Lucide action icons. The current layout is optimized for desktop and tablet staff workflows; the fixed sidebar remains the main responsive limitation.

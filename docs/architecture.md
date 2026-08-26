@@ -1,61 +1,46 @@
 # Architecture Overview
 
-## System Context
-The Hospital Management System is a modern, distributed microservices application designed for high availability and scalability. It handles patient records, doctor scheduling, laboratory tracking, pharmacy inventory, and billing operations.
+## Current System
+
+PulseCore is a React plus Express microservices hospital management system. The current codebase uses an Nginx REST gateway, eight Node/Express services, PostgreSQL databases managed by Prisma, Kafka for appointment notification events, and optional observability services.
 
 ## Technology Stack
-- **Frontend:** React (Vite), Tailwind CSS v3, React Router
-- **Backend Gateway:** *Decision Pending* (Nginx Reverse Proxy vs GraphQL Apollo Gateway)
-- **Microservices:** Node.js v22 (Express) structured via **NPM Workspaces**
-- **Shared Code:** `@pulsecore/common` (Private NPM workspace package)
-- **Database:** MongoDB (Per-service isolation)
-- **Message Broker:** Apache Kafka (KRaft mode) for asynchronous event-driven communication
-- **Caching & Distributed Locks:** Redis
-- **Observability:** OpenTelemetry, Jaeger (Tracing), Prometheus (Metrics), Loki (Logs), Grafana (Dashboards)
-- **Containerization:** Docker & Docker Compose
 
-## Microservices Breakdown
-The system is divided into 7 core services, each responsible for a specific business domain. Services do not share databases; they communicate synchronously via REST for immediate queries and asynchronously via Kafka for eventual consistency.
+- **Frontend:** React 19, Vite, React Router, Tailwind CSS, Axios, Lucide icons.
+- **Gateway:** Nginx reverse proxy under `/api/*`.
+- **Services:** Node.js/Express workspaces.
+- **Shared Package:** `@pulsecore/common` for auth middleware, error handling, metrics, logging, and Kafka helpers.
+- **Database:** PostgreSQL 16. Each service uses its own database: `auth_db`, `patients_db`, `doctors_db`, `appointments_db`, `lab_db`, `pharmacy_db`, `billing_db`, and `notification_db`.
+- **ORM:** Prisma per service.
+- **Messaging:** Kafka topic `hospital.events` for appointment-created notifications.
+- **Observability:** Prometheus metrics middleware, Jaeger tracing preload in Docker, Loki logging when enabled, and Grafana provisioning.
 
-1. **Patients Service** (Port 3001)
-   - Manages user authentication (JWT) and RBAC.
-   - Handles patient profiles and medical history.
-   - Maintains a read-optimized view (`PatientHistoryView`) built from Kafka events.
+## Services
 
-2. **Doctors Service** (Port 3002)
-   - Manages doctor profiles, specializations, and availability schedules.
+1. **Auth Service** (`3008`): Registration, login, bcrypt password hashing, JWT issuance.
+2. **Patients Service** (`3001`): Patient profile CRUD surface used by the frontend.
+3. **Doctors Service** (`3002`): Doctor profiles, departments, and specializations.
+4. **Appointments Service** (`3003`): Appointment booking and listing. It can verify doctor existence through the doctors service when `DOCTORS_SERVICE_URL` is configured, then publishes `AppointmentCreated`.
+5. **Lab Service** (`3004`): Lab order creation, listing, and result updates.
+6. **Pharmacy Service** (`3005`): Inventory, prescriptions, and dispensing with a Prisma transaction for inventory decrement.
+7. **Billing Service** (`3006`): Manual invoice creation, listing, and payment.
+8. **Notification Service** (`3007`): User notifications and Kafka-backed appointment notification persistence.
 
-3. **Appointments Service** (Port 3003)
-   - Handles booking, rescheduling, and cancellations.
-   - Uses Redis distributed locks (`NX EX`) to prevent double-booking of time slots.
+## Startup And Data Initialization
 
-4. **Lab Service** (Port 3004)
-   - Manages laboratory orders and test results.
-   - Streams live updates to the frontend via Server-Sent Events (SSE).
+Fresh Docker Postgres volumes are initialized by `docker/postgres/init-databases.sql`. The `db-setup` Compose job runs Prisma `db push` and seeds all service databases before app services start.
 
-5. **Pharmacy Service** (Port 3005)
-   - Manages medicine inventory, prescriptions, and dispensing records.
+For local development with an already running Postgres on port `5434`:
 
-6. **Billing Service** (Port 3006)
-   - Aggregates charges from Appointments, Lab, and Pharmacy via Kafka events.
-   - Generates consolidated invoices.
+```bash
+npm run db:setup
+```
 
-7. **Notification Service** (Port 3007)
-   - Centralized service for sending in-app alerts and emails.
-   - Consumes various Kafka topics (e.g., `appointment.booked`, `lab.resulted`) to trigger notifications.
-   - Streams in-app notifications to the frontend via SSE.
+Seeded demo users are documented in `docs/api-endpoints.md`.
 
-## Inter-Service Communication
-- **Synchronous (REST):** Used for immediate data retrieval (e.g., Appointments Service querying Doctors Service to verify a schedule before booking).
-- **Asynchronous (Kafka):** Used for state changes and side effects (e.g., Pharmacy dispenses medicine -> publishes `medication.dispensed` -> Billing consumes to add charge, Notification consumes to alert patient).
+## Current Constraints
 
-## Infrastructure Overview
-The entire application runs on 18 Docker containers orchestrated by Docker Compose:
-- 1 Nginx Gateway
-- 7 Node.js Microservices
-- 1 MongoDB Server (with replica set configured for transactions)
-- 1 Redis Server
-- 1 Kafka Broker + 1 Kafka UI
-- 1 OpenTelemetry Collector
-- 1 Jaeger, 1 Prometheus, 1 Loki, 1 Grafana
-- 1 shared Node-based initialization script
+- There is no frontend container in `docker-compose.yml`; run the Vite frontend separately.
+- Redis exists in Compose, but appointment double-booking prevention currently uses a database lookup rather than a Redis lock.
+- Billing does not yet consume Kafka events to auto-generate invoices; invoices are created through the billing API/UI.
+- Lab and notification live updates are polling/manual refresh flows in the current frontend, not SSE.
