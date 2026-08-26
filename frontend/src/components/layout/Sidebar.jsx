@@ -6,7 +6,7 @@ const Sidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Calendar, label: 'Appointments', path: '/appointments' },
+    { icon: Calendar, label: 'Appointments', path: '/appointments/book' },
     { icon: TestTube2, label: 'Laboratory', path: '/lab' },
     { icon: Pill, label: 'Pharmacy', path: '/pharmacy' },
     { icon: FileText, label: 'Billing', path: '/billing' },
@@ -24,11 +24,14 @@ const Sidebar = () => {
           <p className="font-label-md text-label-md text-on-surface-variant truncate">Medical System</p>
         </div>
       </div>
-      
+
       <div className="px-4 py-6">
-        <button className="w-full bg-primary text-on-primary py-3 px-4 rounded-lg font-title-md text-title-md hover:scale-[1.02] transition-transform duration-200 flex items-center justify-center gap-2">
+        <NavLink
+          to="/patients"
+          className="w-full bg-primary text-on-primary py-3 px-4 rounded-lg font-title-md text-title-md hover:scale-[1.02] transition-transform duration-200 flex items-center justify-center gap-2"
+        >
           <span>+ New Admission</span>
-        </button>
+        </NavLink>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 flex flex-col gap-1">

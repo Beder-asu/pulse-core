@@ -1,48 +1,136 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, FlaskConical, Calendar, Activity, TestTube2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api/config';
+
+// Threshold for low stock warnings
+const LOW_STOCK_THRESHOLD = 20;
 
 const Dashboard = () => {
+  const [appointments, setAppointments] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [pendingLabCount, setPendingLabCount] = useState(0);
+  const [activeVisitCount, setActiveVisitCount] = useState(0);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [appointmentsRes, notificationsRes, inventoryRes, labRes] = await Promise.all([
+          api.get('/appointments'),
+          api.get('/notifications').catch(() => ({ data: [] })),
+          api.get('/pharmacy/inventory').catch(() => ({ data: [] })),
+          api.get('/lab/orders').catch(() => ({ data: [] }))
+        ]);
+
+        const allAppointments = appointmentsRes.data || [];
+
+        // Filter appointments for today
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todaysAppointments = allAppointments.filter(app => {
+          if (!app.date) return false;
+          // Handle both ISO strings and local strings
+          return app.date.startsWith(todayStr) || new Date(app.date).toDateString() === new Date().toDateString();
+        });
+
+        setAppointments(todaysAppointments);
+        setActiveVisitCount(todaysAppointments.filter(app => ['SCHEDULED', 'CHECKED_IN'].includes(app.status?.name)).length);
+
+        // Notifications might have 'content' or 'message' field depending on prisma schema
+        setNotifications((notificationsRes.data || []).slice(0, 5));
+
+        // Calculate low stock items
+        const inventory = inventoryRes.data || [];
+        const lowStock = inventory.filter(item => item.stockQuantity < (item.reorderLevel || LOW_STOCK_THRESHOLD));
+        setLowStockCount(lowStock.length);
+        setPendingLabCount((labRes.data || []).filter(order => order.status?.name === 'PENDING').length);
+
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        setError(error.response?.data?.message || 'Unable to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const navigate = useNavigate();
+
   return (
     <div>
       <div className="flex flex-wrap justify-between items-end mb-8 gap-4">
         <div>
           <h2 className="text-4xl font-bold text-on-surface mb-2">Staff Dashboard</h2>
-          <p className="text-on-surface-variant">Welcome back, Dr. Sarah. Here is your overview for today.</p>
+          <p className="text-on-surface-variant">Welcome back! Here is your overview for today.</p>
         </div>
         <div className="flex gap-3">
-          <button className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105">
+          <button
+            onClick={() => navigate('/patients')}
+            className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105"
+          >
             <UserPlus size={20} />
             New Patient
           </button>
-          <button className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105">
+          <button
+            onClick={() => navigate('/lab')}
+            className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105"
+          >
             <FlaskConical size={20} />
             Order Labs
           </button>
         </div>
       </div>
 
+      {error && <div className="mb-6 rounded-lg border border-error bg-error/10 p-4 text-error">{error}</div>}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard icon={Calendar} title="Today's Appointments" value="12" subtitle="+2 from yesterday" />
-        <StatCard icon={Activity} title="Active Visits" value="4" subtitle="Currently in progress" />
-        <StatCard icon={TestTube2} title="Pending Lab Orders" value="8" subtitle="3 critical" alert />
-        <StatCard icon={AlertTriangle} title="Low Stock Items" value="5" subtitle="Requires attention" alert />
+        <StatCard icon={Calendar} title="Today's Appointments" value={appointments.length.toString()} subtitle="Live from DB" />
+        <StatCard icon={Activity} title="Active Visits" value={activeVisitCount.toString()} subtitle="Today" />
+        <StatCard icon={TestTube2} title="Pending Lab Orders" value={pendingLabCount.toString()} subtitle="Live from DB" alert={pendingLabCount > 0} />
+        <StatCard icon={AlertTriangle} title="Low Stock Items" value={lowStockCount.toString()} subtitle={lowStockCount > 0 ? "Requires attention" : "Stock healthy"} alert={lowStockCount > 0} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-panel rounded-xl p-6">
           <h3 className="text-xl font-bold mb-4">Today's Schedule</h3>
           <div className="space-y-4">
-            <ScheduleItem time="09:00 AM" patient="John Doe" reason="Annual Checkup" status="checked_in" />
-            <ScheduleItem time="09:30 AM" patient="Jane Smith" reason="Follow-up" status="scheduled" />
-            <ScheduleItem time="10:00 AM" patient="Robert Johnson" reason="Blood Pressure Monitor" status="completed" />
+            {loading ? (
+              <p className="text-on-surface-variant">Loading appointments from backend...</p>
+            ) : appointments.length > 0 ? (
+              appointments.map(app => (
+                <ScheduleItem
+                  key={app.id}
+                  time={app.timeSlot}
+                  patient={app.patientId}
+                  reason={app.reasonForVisit}
+                  status={app.status?.name?.toLowerCase() || 'scheduled'}
+                />
+              ))
+            ) : (
+              <p className="text-on-surface-variant">No appointments scheduled for today.</p>
+            )}
           </div>
         </div>
         <div className="glass-panel rounded-xl p-6">
           <h3 className="text-xl font-bold mb-4">Recent Notifications</h3>
           <div className="space-y-4">
-            <NotificationItem text="Lab results ready for John Doe" time="10 min ago" />
-            <NotificationItem text="New appointment booked by Jane Smith" time="1 hour ago" />
-            <NotificationItem text="Low stock alert: Amoxicillin" time="2 hours ago" />
+            {loading ? (
+              <p className="text-on-surface-variant">Loading...</p>
+            ) : notifications.length > 0 ? (
+              notifications.map((notif, idx) => (
+                <NotificationItem
+                  key={notif.id || idx}
+                  text={notif.content || notif.message || 'Notification received'}
+                  time={new Date(notif.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                />
+              ))
+            ) : (
+              <p className="text-on-surface-variant">No new notifications.</p>
+            )}
           </div>
         </div>
       </div>

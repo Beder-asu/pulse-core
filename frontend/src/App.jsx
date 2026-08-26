@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -9,14 +9,24 @@ import PharmacyDashboard from './pages/PharmacyDashboard';
 import BookAppointment from './pages/BookAppointment';
 import BillingPage from './pages/BillingPage';
 import ClinicalPrecision from './pages/ClinicalPrecision';
+import NotFound from './pages/NotFound';
+import PatientsPage from './pages/PatientsPage';
+import AppointmentsPage from './pages/AppointmentsPage';
+
+const ProtectedRoute = () => {
+  if (!localStorage.getItem('token')) {
+    return <Navigate to="/login" replace />;
+  }
+  return <MainLayout />;
+};
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={<MainLayout />}>
+
+        <Route path="/" element={<ProtectedRoute />}>
           <Route index element={<Dashboard />} />
           <Route path="patients/:id/history" element={<PatientHistory />} />
           <Route path="lab" element={<LabDashboard />} />
@@ -25,8 +35,10 @@ function App() {
           <Route path="billing" element={<BillingPage />} />
           <Route path="clinical" element={<ClinicalPrecision />} />
           {/* Fallback for empty paths */}
-          <Route path="patients" element={<div>Patients Page Coming Soon</div>} />
-          <Route path="appointments" element={<div>Appointments List Coming Soon</div>} />
+          <Route path="patients" element={<PatientsPage />} />
+          <Route path="appointments" element={<AppointmentsPage />} />
+          {/* Catch-all route for 404s */}
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
