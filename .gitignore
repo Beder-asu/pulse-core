@@ -1,7 +1,45 @@
-node_modules/
-dist/
-build/
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/build/
+coverage/
+.nyc_output/
+
+# Environment and local secrets
 .env
-.DS_Store
+.env.*
+!.env.example
+!**/.env.example
+
+# Logs and runtime files
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Local databases and dumps
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.dump
+
+# Editors, operating systems, and local agent state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.agents/
+.codex/
+
+# Legacy generated design export
 stitch_nexus_medical_management_system/
