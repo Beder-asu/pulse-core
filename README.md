@@ -143,3 +143,12 @@ For deep dives into specific areas of the system, refer to the `/docs` directory
 *   `portfolio-demo.md`: Presentation-ready architecture story, demo path, URLs, and honest limitations.
 *   `frontend-design.md`: UI/UX decisions, tech stack, and component structure.
 *   `troubleshooting-history.md`: Errors encountered, root causes, resolutions, verification status, and remaining gaps.
+
+Final-configuration learning notes live in `/tutorials`:
+*   `docker_compose_guide.md`: Current Compose services, volumes, ports, and startup order.
+*   `docker_phase_2.md`: Final gateway, Redis, and Kafka wiring.
+*   `docker_phase_3.md`: Final service image, frontend image, migration image, and Docker ignore patterns.
+*   `nginx_api_gateway_tutorial.md` and `nginx_configuration.md`: Current gateway routing, proxy headers, CORS, DNS, and SPA forwarding.
+*   `kafka_tutorial.md`: Current `AppointmentCreated` publisher and notification consumer flow.
+*   `redis_caching_tutorial.md`: Current Redis cache-aside lifecycle for doctor reads.
+*   `prometheus_tutorial.md`, `opentelemetry_tutorial.md`, and `loki_tutorial.md`: Current metrics, tracing, Grafana, Jaeger, and conservative Loki status.

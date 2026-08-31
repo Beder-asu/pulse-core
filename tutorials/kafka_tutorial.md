@@ -1,66 +1,135 @@
-# Comprehensive Guide to Kafka (Event-Driven Architecture)
+# Kafka Tutorial: PulseCore Final Event Flow
 
-## 1. Definition
-**Apache Kafka** is a distributed event streaming platform capable of handling trillions of events a day. Originally developed by LinkedIn, it acts as a high-throughput, low-latency messaging queue and storage system. In a microservice architecture, Kafka serves as the "central nervous system" that allows completely decoupled services to communicate asynchronously.
+Kafka is PulseCore's asynchronous event broker. In the current app it powers one production workflow: appointment creation publishes an event, and the notification service consumes that event to create an in-app notification.
 
-## 2. The Problem and Its Solution
-### The Problem: Synchronous Coupling
-Imagine a user books an appointment. The process looks like this:
-1. User clicks "Book". Request hits the `appointments-service`.
-2. The `appointments-service` saves the appointment in its database.
-3. The `appointments-service` makes a synchronous HTTP request to the `notification-service` to send a confirmation email.
-4. The `notification-service` sends the email and returns an HTTP 200 OK.
-5. The `appointments-service` returns an HTTP 200 OK to the user.
+## 1. Why Kafka Exists Here
 
-What if the `notification-service` is temporarily down or slow? The HTTP request times out. The user gets an error on their screen ("Failed to book appointment") even though the appointment *was* saved in the database! The services are tightly coupled.
+Booking an appointment should not require the notification service to be reachable at the exact same millisecond. The appointments service persists the appointment first, then publishes an event to Kafka. The notification service can process that event independently.
 
-### The Solution: Asynchronous Decoupling
-With Kafka, we adopt an **Event-Driven Architecture**:
-1. User clicks "Book". Request hits the `appointments-service`.
-2. The `appointments-service` saves the appointment in its database.
-3. The `appointments-service` fires a single message into Kafka: `{"event": "AppointmentCreated", "userId": 123}`.
-4. The `appointments-service` instantly returns HTTP 200 OK to the user.
-5. In the background, the `notification-service` (which is subscribed to Kafka) reads the message and sends the email.
+Current flow:
 
-If the `notification-service` is down, the email isn't lost. Kafka stores the message safely on disk. When the `notification-service` boots back up, it resumes exactly where it left off!
+```text
+Frontend
+  -> Nginx /api/appointments
+  -> appointments-service
+  -> appointments_db insert
+  -> Kafka topic hospital.events
+  -> notification-service consumer
+  -> notification_db upsert
+  -> Frontend notification menu polls /api/notifications
+```
 
-## 3. How Does It Do It? (The Internals)
-Kafka uses a unique architecture that makes it drastically faster and more scalable than traditional message queues (like RabbitMQ or ActiveMQ).
+## 2. Final Kafka Compose Config
 
-- **Broker:** A single Kafka server. A cluster consists of multiple brokers.
-- **Topic:** A category or feed name to which messages are published (e.g., `hospital.events`).
-- **Partitions:** This is Kafka's magic. A topic is split into multiple Partitions spread across different brokers. This allows massive parallel processing. If you have 3 partitions, 3 consumers can read from the topic simultaneously.
-- **Producer:** An application that writes messages to a Kafka Topic (e.g., `appointments-service`).
-- **Consumer:** An application that reads messages from a Kafka Topic (e.g., `notification-service`).
-- **Consumer Group:** A cluster of consumers working together. If you spin up 5 replicas of the `notification-service`, they all join the `"notification-group"`. Kafka guarantees that a single message is only delivered to *one* of the 5 replicas, balancing the load perfectly.
-- **Offsets:** Unlike RabbitMQ, which deletes a message after it is read, Kafka keeps messages on disk (usually for 7 days). It tracks what a Consumer has read using an integer called an `offset` (e.g., "The notification service has read up to message #4,032").
+Kafka runs as one broker in KRaft mode. There is no Zookeeper container.
 
-## 4. How to Generally Set It Up
-1. **Deploy the Broker:** You run the Kafka server (often alongside Zookeeper or using KRaft mode for leader election).
-2. **Install a Client Library:** In Node.js, the most popular and modern library is `kafkajs`.
-3. **Configure the Producer:**
-   ```javascript
-   const kafka = new Kafka({ clientId: 'my-app', brokers: ['kafka:9092'] })
-   const producer = kafka.producer()
-   await producer.connect()
-   await producer.send({ topic: 'my-topic', messages: [{ value: 'Hello!' }] })
-   ```
-4. **Configure the Consumer:**
-   ```javascript
-   const consumer = kafka.consumer({ groupId: 'my-group' })
-   await consumer.connect()
-   await consumer.subscribe({ topic: 'my-topic', fromBeginning: true })
-   await consumer.run({ eachMessage: async ({ message }) => console.log(message.value) })
-   ```
+```yaml
+kafka:
+  image: confluentinc/cp-kafka:7.5.0
+  container_name: pulsecore-kafka
+  ports:
+    - "9092:9092"
+  environment:
+    KAFKA_NODE_ID: 1
+    KAFKA_PROCESS_ROLES: broker,controller
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+    KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    CLUSTER_ID: ADUDsqPd7-TKj2h5CMXyrw
+  networks:
+    - hospital-network
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 20s
+```
 
-## 5. How It Is Wired in Our App
-Kafka is currently used for one production flow: appointments publish hospital events, and notifications consume them.
+Containers use `kafka:29092`. Host tools use `localhost:9092`.
 
-1. **Shared Kafka Adapters**
-   The reusable Kafka connection logic lives in `packages/common/src/kafka-publisher.js` and `packages/common/src/kafka-consumer.js`. The shared package exports them lazily so services that only need logging, auth, metrics, or Redis do not construct Kafka clients.
-2. **Appointment Publisher**
-   `services/appointments/src/messaging/producerLifecycle.js` starts and stops the producer for the appointments service. `services/appointments/src/messaging/publishers/appointmentCreatedPublisher.js` publishes `AppointmentCreated` events to the `hospital.events` topic after an appointment is persisted.
-3. **Notification Consumer**
-   `services/notification/src/server.js` starts `services/notification/src/messaging/consumers/hospitalEventsConsumer.js` after the HTTP server is listening. That consumer subscribes to `hospital.events` and turns `AppointmentCreated` messages into persisted notifications.
-4. **OpenTelemetry Tracing**
-   OpenTelemetry instrumentation is loaded before each service starts. HTTP requests are traced today, and Kafka message handling runs inside the instrumented services. If deeper producer-to-consumer trace propagation is needed later, the next step is to explicitly pass trace context in Kafka message headers.
+## 3. Shared Kafka Client
+
+The shared transport client lives in `packages/common/src/kafka-client.js`:
+
+```javascript
+module.exports = new Kafka({
+  clientId: process.env.SERVICE_NAME || 'pulsecore-tooling',
+  brokers: (process.env.KAFKA_BROKERS || 'kafka:29092').split(','),
+  logLevel: logLevel.ERROR
+});
+```
+
+`packages/common/src/index.js` exports `kafkaPublisher` and `kafkaConsumer` lazily. Non-Kafka services can import common logging, auth, metrics, and Redis utilities without constructing Kafka clients.
+
+## 4. Publisher
+
+The appointments service connects its producer at startup:
+
+```javascript
+await producerLifecycle.connect();
+```
+
+The publisher lives at `services/appointments/src/messaging/publishers/appointmentCreatedPublisher.js`.
+
+It sends:
+
+```javascript
+broker.publish('hospital.events', {
+  eventId: createId(),
+  event: 'AppointmentCreated',
+  payload: { appointmentId, patientId, patientName, doctorId, doctorName, date, timeSlot }
+});
+```
+
+Kafka publication happens after the appointment is persisted. It is not part of the same database transaction, so this is asynchronous integration, not an atomic outbox pattern.
+
+## 5. Consumer
+
+The notification service starts `hospitalEventsConsumer` from `services/notification/src/server.js` after the HTTP server is listening.
+
+The consumer subscribes to:
+
+```text
+hospital.events
+```
+
+Its consumer group is generated by the common consumer:
+
+```javascript
+groupId: `${SERVICE_NAME}-group`
+```
+
+For notification, that becomes:
+
+```text
+notification-service-group
+```
+
+## 6. Idempotency
+
+The event handler writes notifications with `eventId`. The notification repository uses an upsert, so replayed `AppointmentCreated` events do not create duplicate notifications for the same event.
+
+If an event does not include `eventId`, the handler falls back to `appointmentId`.
+
+## 7. Topic Creation
+
+The app does not define an explicit topic-creation script. KafkaJS publishes/subscribes to `hospital.events`, and in the local broker setup the topic can be auto-created by Kafka.
+
+For stricter production, create topics explicitly during deployment with a fixed partition count, replication factor, and retention policy.
+
+## 8. Demo Checklist
+
+1. Open `http://localhost`.
+2. Book an appointment.
+3. Open the notification bell and confirm the appointment notification appears.
+4. In Jaeger, search `appointments-service` and `notification-service`.
+5. Optionally inspect Kafka from inside the container:
+
+```bash
+docker exec pulsecore-kafka kafka-topics --bootstrap-server localhost:9092 --list
+```

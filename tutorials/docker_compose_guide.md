@@ -1,143 +1,215 @@
-# Docker Compose Masterclass: Building a Microservices Architecture
+# Docker Compose Guide: PulseCore Final Stack
 
-Welcome to the Docker phase! When building microservices, you need a way to run multiple databases (Postgres, Redis, MongoDB), message brokers (Kafka), and your Node.js APIs simultaneously.
+This tutorial explains the `docker-compose.yml` file as it exists now. The current Compose stack runs the React frontend, Nginx gateway, eight Node/Express services, PostgreSQL, Redis, Kafka, Prometheus, Loki, Jaeger, Grafana, and the one-shot `db-setup` initialization job.
 
-`docker-compose.yml` is the instruction manual that tells Docker exactly how to build and connect all these moving parts.
+## 1. Why Compose Exists Here
 
----
+PulseCore is not one process. The application needs:
 
-## Concept 1: The `services` Block
-Every container you want to run (like Postgres or your Auth API) is called a **service**.
-All services must be nested under the top-level `services:` block.
+- one public gateway
+- one built frontend
+- eight backend services
+- PostgreSQL databases for each service
+- Redis for doctor read caching
+- Kafka for appointment notification events
+- Prometheus, Jaeger, Loki, and Grafana for observability
+- a startup job that pushes Prisma schemas and seeds demo data
 
-```yaml
-version: '3.8'
+Compose gives those containers one shared Docker network and a reproducible startup order.
 
-services:
-  postgres:
-    image: postgres:16-alpine # Tells Docker which image to download
+## 2. Required Environment Variables
+
+The final Compose file intentionally refuses to start without required local secrets:
+
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=change-this-local-db-password
+JWT_SECRET=change-this-long-jwt-secret
+INTERNAL_SERVICE_SECRET=change-this-internal-service-secret
+DEMO_USER_PASSWORD=change-this-demo-user-password
+GRAFANA_ADMIN_PASSWORD=change-this-grafana-password
 ```
 
----
+`GRAFANA_ADMIN_USER` is optional and defaults to `admin`.
 
-## Concept 2: Configuration (`environment` and `ports`)
-Containers are isolated boxes. To make them useful, we have to pass data into them, and open doors for data to come out.
+## 3. Core Persistence Services
 
-### Environment Variables
-Some images (like Postgres) require configuration on startup. We use the `environment:` block to pass these in as key-value pairs (using colons `:`).
-
-### Ports (The Doors)
-By default, you cannot access a database running inside Docker from your Windows machine (or from Prisma). You must map a port.
-Format: `"HostPort:ContainerPort"`
+PostgreSQL is exposed to the host on `localhost:5434`, but containers use the internal address `postgres:5432`.
 
 ```yaml
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432" # Opens port 5432 on your Windows machine and links it to Postgres
+postgres:
+  image: postgres:16-alpine
+  container_name: pulsecore-postgres
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+  ports:
+    - "5434:5432"
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+    - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+  networks:
+    - hospital-network
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres"]
+    interval: 5s
+    timeout: 5s
+    retries: 20
 ```
 
----
-
-## Concept 3: Persistence (`volumes`)
-> [!WARNING]
-> By default, if a Docker container restarts or dies, **all data inside it is permanently deleted.**
-
-To save our hospital data, we use **Volumes**. A volume maps a folder inside the container to your Windows hard drive.
-Format: `- named_volume_name:/path/inside/container`
-
-If you use a named volume, you **must** declare it at the very bottom of your file.
+Redis is persistent through append-only files and the named `redis_data` volume.
 
 ```yaml
-  postgres:
-    image: postgres:16-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data # No space after the colon!
-
-# At the very bottom of the file (un-indented):
-volumes:
-  postgres_data:
+redis:
+  image: redis:7.2-alpine
+  container_name: pulsecore-redis
+  command: ["redis-server", "--appendonly", "yes"]
+  ports:
+    - "6379:6379"
+  volumes:
+    - redis_data:/data
+  networks:
+    - hospital-network
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
 ```
 
----
+## 4. Database Setup Job
 
-## Concept 4: Isolation (`networks`)
-In microservices, we want our APIs to talk to our databases securely, without exposing them to the public internet.
-We achieve this by putting them on a custom virtual **Network**.
-
-Just like volumes, if you assign a service to a network, you must declare that network at the bottom of the file.
+`db-setup` is not a server. It is expected to stop after success.
 
 ```yaml
-  postgres:
-    image: postgres:16-alpine
-    networks:
-      - hospital-network
-
-# At the very bottom of the file:
-networks:
-  hospital-network:
-    driver: bridge # Bridge creates a virtual LAN for our containers
+db-setup:
+  build:
+    context: .
+    dockerfile: Dockerfile.migrate
+  container_name: pulsecore-db-setup
+  environment:
+    - POSTGRES_HOST=postgres
+    - POSTGRES_PORT=5432
+    - POSTGRES_USER=${POSTGRES_USER:?Set POSTGRES_USER in .env}
+    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    - DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD in .env}
+  networks:
+    - hospital-network
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: "no"
 ```
 
----
+The job runs `npm run db:setup`, which calls `scripts/migrate_all.js` and `scripts/seed_all.js`.
 
-## Putting it all together: Phase 1
-Here is the complete Phase 1 code. It combines all the concepts above to launch both **PostgreSQL** and **Redis** on the same private network, with permanent storage!
+## 5. Frontend and Gateway
 
-Copy this entire block and replace the contents of your `docker-compose.yml`:
+The production frontend is a static Nginx container. The public entrypoint is the separate API gateway at `http://localhost`.
 
 ```yaml
-version: '3.8'
+frontend:
+  build:
+    context: ./frontend
+    dockerfile: Dockerfile
+  container_name: pulsecore-frontend
+  expose:
+    - "80"
+  networks:
+    - hospital-network
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+```
 
-services:
-  # ----------------------------------------
-  # Core Databases
-  # ----------------------------------------
-  postgres:
-    image: postgres:16-alpine
-    container_name: pulsecore-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - hospital-network
-    restart: unless-stopped
+```yaml
+api-gateway:
+  image: nginx:alpine
+  container_name: pulsecore-gateway
+  ports:
+    - "80:80"
+  volumes:
+    - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    - ./nginx/cors.conf:/etc/nginx/cors.conf:ro
+  networks:
+    - hospital-network
+  restart: unless-stopped
+```
 
-  redis:
-    image: redis:7.2-alpine
-    container_name: pulsecore-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - hospital-network
-    restart: unless-stopped
+## 6. Service Pattern
 
-# ----------------------------------------
-# Persistent Storage Volumes
-# ----------------------------------------
+Each service builds from the repository root because the image needs the root workspace files and `packages/common`.
+
+```yaml
+doctors-service:
+  build:
+    context: .
+    dockerfile: services/doctors/Dockerfile
+  container_name: pulsecore-doctors
+  ports:
+    - "3002:3002"
+  environment:
+    - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/doctors_db
+    - PORT=3002
+    - SERVICE_NAME=doctors-service
+    - NODE_ENV=production
+    - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+    - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
+    - REDIS_URL=redis://redis:6379
+    - REDIS_CONNECT_TIMEOUT_MS=1000
+    - REDIS_RETRY_COOLDOWN_MS=5000
+    - DOCTOR_LIST_CACHE_TTL_SECONDS=300
+    - DOCTOR_PROFILE_CACHE_TTL_SECONDS=300
+  networks:
+    - hospital-network
+  depends_on:
+    db-setup:
+      condition: service_completed_successfully
+  restart: unless-stopped
+```
+
+Most services depend only on `db-setup`. Appointments and notification also depend on healthy Kafka.
+
+## 7. Observability Services
+
+Compose starts:
+
+- Prometheus at `http://localhost:9090`
+- Grafana at `http://localhost:3000`
+- Jaeger at `http://localhost:16686`
+- Loki API at `http://localhost:3100`
+
+Grafana provisions Prometheus and Loki data sources. Jaeger is viewed directly in the Jaeger UI.
+
+## 8. Volumes and Network
+
+```yaml
 volumes:
   postgres_data:
   redis_data:
 
-# ----------------------------------------
-# Custom Network
-# ----------------------------------------
 networks:
   hospital-network:
     driver: bridge
 ```
 
-### Your Mission
-1. Paste the complete code above into your `docker-compose.yml`.
-2. Open your terminal in the root folder.
-3. Run `docker compose up -d`
-4. Let me know if it successfully boots up!
+Only PostgreSQL and Redis have named volumes. Kafka, Jaeger all-in-one, Prometheus, Loki, and Grafana use their container/image defaults in this local stack.
+
+## 9. Final Startup Command
+
+```bash
+docker compose up -d --build
+```
+
+Then open:
+
+- App: `http://localhost`
+- Gateway API health checks: `http://localhost/api/<service>/health`
+- Grafana: `http://localhost:3000`
+- Prometheus: `http://localhost:9090`
+- Jaeger: `http://localhost:16686`

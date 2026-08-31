@@ -367,7 +367,7 @@ Dashboard panels could be empty even though Prometheus was successfully scraping
 
 **Root cause**
 
-The metrics did not contain the expected `service` label. Prometheus identified each target through the `instance` label under the shared `hospital-services` job.
+At the time of the Grafana fix, the dashboard queries could not rely on the expected `service` label. Prometheus did reliably identify each target through the `instance` label under the shared `hospital-services` job. The current shared metrics middleware also adds a `service` label from `SERVICE_NAME`, but the dashboard still groups several panels by `instance` because that is the scrape-target label Grafana was verified against.
 
 **Resolution**
 
@@ -521,7 +521,7 @@ Documentation from earlier project phases remained after major implementation ch
 **Resolution**
 
 - Rewrote architecture, API, frontend, and endpoint documentation from current files.
-- Added Docker, Nginx, Kafka, OpenTelemetry, Prometheus, and Loki tutorials.
+- Added Docker, Nginx, Kafka, Redis, OpenTelemetry, Prometheus, and Loki tutorials.
 - Replaced the stale UI endpoint report with current verified behavior.
 - Established the files and observed runtime as ground truth rather than older Git descriptions.
 
