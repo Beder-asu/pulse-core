@@ -17,27 +17,27 @@ test('registration preserves validation order and response contract', async () =
 
   await assert.rejects(service.register({}), { message: 'Email and password are required', statusCode: 400 });
   await assert.rejects(service.register({ email: 'patient@example.com', password: 'short' }), { message: 'Password must be at least 8 characters', statusCode: 400 });
-  assert.deepEqual(await service.register({ email: 'patient@example.com', password: 'replace-with-local-demo-password' }), {
+  assert.deepEqual(await service.register({ email: 'patient@example.com', password: 'valid-test-passphrase' }), {
     id: 'user-id',
     email: 'patient@example.com',
     role: 'PATIENT'
   });
 
-  const privilegedAttempt = await service.register({ email: 'other@example.com', password: 'replace-with-local-demo-password', role: 'ADMIN' });
+  const privilegedAttempt = await service.register({ email: 'other@example.com', password: 'valid-test-passphrase', role: 'ADMIN' });
   assert.equal(privilegedAttempt.role, 'PATIENT');
 });
 
 test('authentication preserves invalid-credential and success behavior', async () => {
   const service = createAuthenticationService({
     users: { findByEmail: async () => ({ id: 'user-id', email: 'admin@example.com', role: 'ADMIN', password: 'hash' }) },
-    passwords: { compare: async (password) => password === 'replace-with-local-demo-password' },
+    passwords: { compare: async (password) => password === 'valid-test-passphrase' },
     sessions: { issue: async () => ({ token: 'signed-token', refreshToken: 'refresh', refreshExpiresAt: new Date(0) }) },
     serviceLogger: silentLogger
   });
 
   await assert.rejects(service.login({}), { message: 'Email and password are required', statusCode: 400 });
   await assert.rejects(service.login({ email: 'admin@example.com', password: 'wrong' }), { message: 'Invalid email or password', statusCode: 401 });
-  assert.deepEqual(await service.login({ email: 'admin@example.com', password: 'replace-with-local-demo-password' }), {
+  assert.deepEqual(await service.login({ email: 'admin@example.com', password: 'valid-test-passphrase' }), {
     id: 'user-id',
     email: 'admin@example.com',
     role: 'ADMIN',

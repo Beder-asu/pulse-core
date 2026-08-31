@@ -5,7 +5,13 @@ const services = ['auth', 'patients', 'doctors', 'appointments', 'lab', 'pharmac
 const host = process.env.POSTGRES_HOST || '127.0.0.1';
 const port = process.env.POSTGRES_PORT || '5434';
 const user = process.env.POSTGRES_USER || 'postgres';
-const password = process.env.POSTGRES_PASSWORD || 'replace-with-local-demo-password';
+const requireEnv = (name) => {
+  if (!process.env[name]) {
+    throw new Error(`${name} must be set before running database seeds`);
+  }
+  return process.env[name];
+};
+const password = requireEnv('POSTGRES_PASSWORD');
 
 for (const service of services) {
   console.log(`\nSeeding ${service}...`);

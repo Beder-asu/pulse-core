@@ -61,7 +61,13 @@ Services -> Prometheus / Jaeger / optional Loki logging
 
 ### Running the System
 
-The entire infrastructure can be spun up using Docker Compose:
+Create a local `.env` file first:
+
+```bash
+cp .env.example .env
+```
+
+Fill the placeholders with local-only values. The entire infrastructure can then be spun up using Docker Compose:
 
 ```bash
 docker compose up --build -d

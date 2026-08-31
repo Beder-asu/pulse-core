@@ -35,7 +35,7 @@ Format: `"HostPort:ContainerPort"`
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: replace-with-local-demo-password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432" # Opens port 5432 on your Windows machine and links it to Postgres
 ```
@@ -101,7 +101,7 @@ services:
     container_name: pulsecore-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: replace-with-local-demo-password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:

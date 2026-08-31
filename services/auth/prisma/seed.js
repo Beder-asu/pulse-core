@@ -5,7 +5,10 @@ const { DEMO_IDS } = require('../../../packages/common/src/demo-data');
 const prisma = new PrismaClient();
 
 async function main() {
-  const password = await bcrypt.hash('replace-with-local-demo-password', 10);
+  if (!process.env.DEMO_USER_PASSWORD) {
+    throw new Error('DEMO_USER_PASSWORD must be set before seeding demo auth users');
+  }
+  const password = await bcrypt.hash(process.env.DEMO_USER_PASSWORD, 10);
   const users = [
     { id: DEMO_IDS.users.patientAmina, email: 'patient@hospital.com', role: 'PATIENT' },
     { id: DEMO_IDS.users.patientMariam, email: 'mariam.patient@hospital.com', role: 'PATIENT' },

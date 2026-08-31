@@ -4,7 +4,7 @@ import api from '../api/config';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ email: 'admin@hospital.com', password: 'replace-with-local-demo-password' });
+  const [formData, setFormData] = useState({ email: 'admin@hospital.com', password: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 

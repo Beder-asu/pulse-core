@@ -6,8 +6,8 @@ services:
     image: postgres:16-alpine
     container_name: pulsecore-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: replace-with-local-demo-password
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "5434:5432"
     volumes:
@@ -30,8 +30,9 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=replace-with-local-demo-password
+      - POSTGRES_USER=${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD in .env}
     networks:
       - hospital-network
     depends_on:
@@ -147,12 +148,12 @@ services:
     ports:
       - "3008:3008"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/auth_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/auth_db
       - SERVICE_PORT=3008
       - SERVICE_NAME=auth-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
       - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
@@ -169,12 +170,12 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/patients_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/patients_db
       - PORT=3001
       - SERVICE_NAME=patients-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
     networks:
       - hospital-network
     depends_on:
@@ -190,12 +191,12 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/doctors_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/doctors_db
       - PORT=3002
       - SERVICE_NAME=doctors-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
       - REDIS_URL=redis://redis:6379
       - REDIS_CONNECT_TIMEOUT_MS=1000
       - REDIS_RETRY_COOLDOWN_MS=5000
@@ -216,12 +217,12 @@ services:
     ports:
       - "3003:3003"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/appointments_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/appointments_db
       - PORT=3003
       - SERVICE_NAME=appointments-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
       - DOCTORS_SERVICE_URL=http://doctors-service:3002
       - PATIENTS_SERVICE_URL=http://patients-service:3001
       - KAFKA_BROKERS=kafka:29092
@@ -242,12 +243,12 @@ services:
     ports:
       - "3004:3004"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/lab_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/lab_db
       - PORT=3004
       - SERVICE_NAME=lab-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
     networks:
       - hospital-network
     depends_on:
@@ -263,12 +264,12 @@ services:
     ports:
       - "3005:3005"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/pharmacy_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/pharmacy_db
       - PORT=3005
       - SERVICE_NAME=pharmacy-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
     networks:
       - hospital-network
     depends_on:
@@ -284,12 +285,12 @@ services:
     ports:
       - "3006:3006"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/billing_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/billing_db
       - PORT=3006
       - SERVICE_NAME=billing-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
     networks:
       - hospital-network
     depends_on:
@@ -305,12 +306,12 @@ services:
     ports:
       - "3007:3007"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/notification_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/notification_db
       - PORT=3007
       - SERVICE_NAME=notification-service
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in .env}
       - DOCTORS_SERVICE_URL=http://doctors-service:3002
       - PATIENTS_SERVICE_URL=http://patients-service:3001
       - KAFKA_BROKERS=kafka:29092
@@ -368,7 +369,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
     volumes:
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards

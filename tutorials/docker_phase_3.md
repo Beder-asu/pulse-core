@@ -190,7 +190,7 @@ Once you have a `Dockerfile`, you reference it in `docker-compose.yml` using `bu
     ports:
       - "3001:3001"
     environment:
-      - POSTGRES_BASE_URL=postgresql://postgres:replace-with-local-demo-password@postgres:5432/auth_db
+      - POSTGRES_BASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
       - JWT_SECRET=your-secret-key
     networks:
       - hospital-network

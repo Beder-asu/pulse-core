@@ -3,6 +3,7 @@ const { isUuidV7 } = require('../packages/common/src/uuid');
 const { DEMO_IDS } = require('../packages/common/src/demo-data');
 
 const baseUrl = process.env.E2E_BASE_URL || 'http://localhost/api';
+const demoPassword = process.env.DEMO_USER_PASSWORD;
 const runTimestamp = Date.now();
 const unique = new Date(runTimestamp).toISOString().replace(/[-:.TZ]/g, '');
 let patientId;
@@ -50,6 +51,8 @@ const expectStatus = async (status, path, options) => {
 };
 
 const main = async () => {
+  assert(demoPassword, 'DEMO_USER_PASSWORD must be set before running the gateway E2E test');
+
   for (const service of ['auth', 'patients', 'doctors', 'appointments', 'lab', 'pharmacy', 'billing', 'notifications']) {
     const health = await expectOk(`/${service}/health`);
     assert.match(health.status, /OK$/);
@@ -59,7 +62,7 @@ const main = async () => {
 
   const login = await expectOk('/auth/login', {
     method: 'POST',
-    body: { email: 'admin@hospital.com', password: 'replace-with-local-demo-password' }
+    body: { email: 'admin@hospital.com', password: demoPassword }
   });
   assert(login.token, 'login response must include a JWT');
   token = login.token;
@@ -71,7 +74,7 @@ const main = async () => {
     method: 'POST',
     body: {
       email: `e2e.patient.${unique}@hospital.test`,
-      password: 'replace-with-local-demo-password',
+      password: demoPassword,
       role: 'PATIENT'
     }
   });

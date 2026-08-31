@@ -6,7 +6,7 @@ import { hasRole } from '../auth/roles';
 
 const initialForm = {
   email: '',
-  password: 'replace-with-local-demo-password',
+  password: '',
   firstName: '',
   lastName: '',
   dateOfBirth: '',

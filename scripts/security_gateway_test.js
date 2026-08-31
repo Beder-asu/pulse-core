@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const { DEMO_IDS } = require('../packages/common/src/demo-data');
 
 const baseUrl = process.env.E2E_BASE_URL || 'http://localhost/api';
+const demoPassword = process.env.DEMO_USER_PASSWORD;
+const internalSecret = process.env.INTERNAL_SERVICE_SECRET;
 
 const request = async (path, { token, cookie, headers = {}, body, ...options } = {}) => {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -30,15 +32,18 @@ const expectStatus = async (status, path, options) => {
 
 const login = async (email) => expectStatus(200, '/auth/login', {
   method: 'POST',
-  body: { email, password: 'replace-with-local-demo-password' }
+  body: { email, password: demoPassword }
 });
 
 const assertEvery = (items, predicate, message) => assert(items.every(predicate), message);
 
 const main = async () => {
+  assert(demoPassword, 'DEMO_USER_PASSWORD must be set before running the security gateway test');
+  assert(internalSecret, 'INTERNAL_SERVICE_SECRET must be set before running the security gateway test');
+
   // Public callers cannot forge SYSTEM even when they know header names.
   await expectStatus(401, '/patients', {
-    headers: { 'X-Internal-Call': 'true', 'X-Internal-Secret': 'replace-with-long-random-internal-service-secret' }
+    headers: { 'X-Internal-Call': 'true', 'X-Internal-Secret': internalSecret }
   });
 
   const patient = await login('patient@hospital.com');
