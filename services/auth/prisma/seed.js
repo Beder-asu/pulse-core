@@ -1,15 +1,19 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const { DEMO_IDS } = require('../../../packages/common/src/demo-data');
 
 const prisma = new PrismaClient();
 
 async function main() {
   const password = await bcrypt.hash('replace-with-local-demo-password', 10);
   const users = [
-    { id: 'PAT-123', email: 'patient@hospital.com', role: 'PATIENT' },
-    { id: 'DOC-123', email: 'doctor@hospital.com', role: 'DOCTOR' },
-    { id: 'STAFF-123', email: 'staff@hospital.com', role: 'STAFF' },
-    { id: 'ADMIN-123', email: 'admin@hospital.com', role: 'ADMIN' },
+    { id: DEMO_IDS.users.patientAmina, email: 'patient@hospital.com', role: 'PATIENT' },
+    { id: DEMO_IDS.users.patientMariam, email: 'mariam.patient@hospital.com', role: 'PATIENT' },
+    { id: DEMO_IDS.users.patientYoussef, email: 'youssef.patient@hospital.com', role: 'PATIENT' },
+    { id: DEMO_IDS.users.doctorOmar, email: 'doctor@hospital.com', role: 'DOCTOR' },
+    { id: DEMO_IDS.users.doctorSalma, email: 'salma.doctor@hospital.com', role: 'DOCTOR' },
+    { id: DEMO_IDS.users.staff, email: 'staff@hospital.com', role: 'STAFF' },
+    { id: DEMO_IDS.users.admin, email: 'admin@hospital.com', role: 'ADMIN' },
   ];
 
   for (const user of users) {

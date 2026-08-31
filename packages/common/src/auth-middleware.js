@@ -1,13 +1,24 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { DEMO_IDS } = require('./demo-data');
 
 const normalizeRole = (role) => (role || '').toString().toUpperCase();
+
+const matchesInternalSecret = (provided) => {
+  const expected = process.env.INTERNAL_SERVICE_SECRET;
+  if (!provided || !expected) return false;
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  return providedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+};
 
 const protect = (req, res, next) => {
   let token;
 
-  // Check for internal microservice call bypass
-  if (req.headers['x-internal-call'] === 'true') {
-    req.user = { role: 'system' };
+  // Internal calls receive SYSTEM authority only after proving possession of a
+  // service credential. Nginx strips these headers from all public requests.
+  if (req.headers['x-internal-call'] === 'true' && matchesInternalSecret(req.headers['x-internal-secret'])) {
+    req.user = { role: 'SYSTEM' };
     return next();
   }
 
@@ -16,7 +27,7 @@ const protect = (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
 
       if (process.env.ENABLE_DEV_AUTH_BYPASS === 'true' && token === 'dummy-dev-token-xyz') {
-        req.user = { id: process.env.DEV_USER_ID || 'PAT-123', role: normalizeRole(process.env.DEV_USER_ROLE || 'PATIENT') };
+        req.user = { id: process.env.DEV_USER_ID || DEMO_IDS.users.patientAmina, role: normalizeRole(process.env.DEV_USER_ROLE || 'PATIENT') };
         return next();
       }
 
@@ -25,6 +36,9 @@ const protect = (req, res, next) => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.type !== 'access') {
+        return res.status(401).json({ message: 'Not authorized, token failed' });
+      }
       req.user = { ...decoded, role: normalizeRole(decoded.role) };
       next();
     } catch (error) {

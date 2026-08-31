@@ -11,15 +11,16 @@
     "db:push": "node scripts/migrate_all.js",
     "db:seed": "node scripts/seed_all.js",
     "db:setup": "npm run db:push && npm run db:seed",
-    "test:e2e": "node scripts/e2e_gateway_test.js"
+    "test:e2e": "node scripts/e2e_gateway_test.js",
+    "test:security": "node --test scripts/access_policy_test.js && node scripts/security_gateway_test.js"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.8.0",
-    "@opentelemetry/sdk-node": "^0.51.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.47.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.51.0",
-    "@opentelemetry/resources": "^1.24.0",
-    "@opentelemetry/semantic-conventions": "^1.24.0"
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

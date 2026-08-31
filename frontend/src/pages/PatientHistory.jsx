@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/config';
+import { hasRole } from '../auth/roles';
+import { buildDoctorNameMap, resolveDoctorName } from '../utils/identity';
 
 const PatientHistory = () => {
   const { id } = useParams();
@@ -12,17 +14,19 @@ const PatientHistory = () => {
     const loadHistory = async () => {
       setStatus({ loading: true, error: '' });
       try {
-        const [profileRes, appointmentsRes, labsRes, prescriptionsRes, invoicesRes] = await Promise.all([
+        const [profileRes, appointmentsRes, labsRes, prescriptionsRes, invoicesRes, doctorsRes] = await Promise.all([
           api.get(`/patients/${id}`),
           api.get('/appointments', { params: { patientId: id } }),
           api.get('/lab/orders', { params: { patientId: id } }),
-          api.get('/pharmacy/prescriptions', { params: { patientId: id } }),
-          api.get('/billing/invoices', { params: { patientId: id } })
+          hasRole('DOCTOR', 'STAFF', 'ADMIN') ? api.get('/pharmacy/prescriptions', { params: { patientId: id } }) : Promise.resolve({ data: [] }),
+          hasRole('STAFF', 'ADMIN') ? api.get('/billing/invoices', { params: { patientId: id } }) : Promise.resolve({ data: [] }),
+          api.get('/doctors')
         ]);
 
         setProfile(profileRes.data);
+        const doctorNames = buildDoctorNameMap(doctorsRes.data);
         const timeline = [
-          ...(appointmentsRes.data || []).map((item) => ({ id: item.id, type: 'Appointment', title: item.reasonForVisit, date: item.date, meta: `${item.timeSlot} - ${item.status?.name}` })),
+          ...(appointmentsRes.data || []).map((item) => ({ id: item.id, type: 'Appointment', title: item.reasonForVisit, date: item.date, meta: `${resolveDoctorName(doctorNames, item.doctorId)} - ${item.timeSlot} - ${item.status?.name}` })),
           ...(labsRes.data || []).map((item) => ({ id: item.id, type: 'Lab', title: item.testName, date: item.createdAt, meta: `${item.status?.name}${item.result ? ` - ${item.result}` : ''}` })),
           ...(prescriptionsRes.data || []).map((item) => ({ id: item.id, type: 'Prescription', title: item.medications?.map((med) => med.inventory?.medicineName).join(', ') || 'Medication', date: item.createdAt, meta: item.status?.name })),
           ...(invoicesRes.data || []).map((item) => ({ id: item.id, type: 'Invoice', title: `$${item.totalAmount.toFixed(2)}`, date: item.createdAt, meta: item.status?.name })),
@@ -42,7 +46,7 @@ const PatientHistory = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold mb-2">Patient Medical History</h2>
-        <p className="text-on-surface-variant">{profile ? `${profile.firstName} ${profile.lastName} - ${profile.userId}` : id}</p>
+        <p className="text-on-surface-variant">{profile ? `${profile.firstName} ${profile.lastName}` : 'Loading patient...'}</p>
       </div>
 
       {status.error && <div className="rounded-lg border border-error bg-error/10 p-4 text-error">{status.error}</div>}

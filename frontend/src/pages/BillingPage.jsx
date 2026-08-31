@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, FilePlus, RefreshCw } from 'lucide-react';
 import api from '../api/config';
+import { buildPatientNameMap, resolvePatientName } from '../utils/identity';
 
 const BillingPage = () => {
   const [invoices, setInvoices] = useState([]);
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState({ patientId: '', description: 'Consultation fee', amount: '150' });
   const [status, setStatus] = useState({ loading: true, saving: false, error: '', success: '' });
+  const patientNames = buildPatientNameMap(patients);
 
   const loadData = async () => {
     setStatus((current) => ({ ...current, loading: true, error: '' }));
@@ -94,7 +96,7 @@ const BillingPage = () => {
             {invoices.map((invoice) => (
               <div key={invoice.id} className="p-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="font-bold">{invoice.patientId} - ${invoice.totalAmount.toFixed(2)}</p>
+                  <p className="font-bold">{resolvePatientName(patientNames, invoice.patientId)} - ${invoice.totalAmount.toFixed(2)}</p>
                   <p className="text-sm text-on-surface-variant">{invoice.items.map((item) => item.description).join(', ')}</p>
                 </div>
                 <div className="flex items-center gap-3">

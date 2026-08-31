@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, FlaskConical, Calendar, Activity, TestTube2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/config';
+import { getCurrentUser, hasRole } from '../auth/roles';
+import { buildPatientNameMap, resolvePatientName } from '../utils/identity';
 
 // Threshold for low stock warnings
 const LOW_STOCK_THRESHOLD = 20;
 
 const Dashboard = () => {
+  const role = getCurrentUser()?.role || 'USER';
   const [appointments, setAppointments] = useState([]);
+  const [patientNames, setPatientNames] = useState(new Map());
   const [notifications, setNotifications] = useState([]);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [pendingLabCount, setPendingLabCount] = useState(0);
@@ -18,11 +22,12 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [appointmentsRes, notificationsRes, inventoryRes, labRes] = await Promise.all([
+        const [appointmentsRes, notificationsRes, inventoryRes, labRes, patientsRes] = await Promise.all([
           api.get('/appointments'),
           api.get('/notifications').catch(() => ({ data: [] })),
-          api.get('/pharmacy/inventory').catch(() => ({ data: [] })),
-          api.get('/lab/orders').catch(() => ({ data: [] }))
+          hasRole('DOCTOR', 'STAFF', 'ADMIN') ? api.get('/pharmacy/inventory') : Promise.resolve({ data: [] }),
+          api.get('/lab/orders').catch(() => ({ data: [] })),
+          api.get('/patients').catch(() => ({ data: [] }))
         ]);
 
         const allAppointments = appointmentsRes.data || [];
@@ -36,6 +41,7 @@ const Dashboard = () => {
         });
 
         setAppointments(todaysAppointments);
+        setPatientNames(buildPatientNameMap(patientsRes.data));
         setActiveVisitCount(todaysAppointments.filter(app => ['SCHEDULED', 'CHECKED_IN'].includes(app.status?.name)).length);
 
         // Notifications might have 'content' or 'message' field depending on prisma schema
@@ -64,24 +70,24 @@ const Dashboard = () => {
     <div>
       <div className="flex flex-wrap justify-between items-end mb-8 gap-4">
         <div>
-          <h2 className="text-4xl font-bold text-on-surface mb-2">Staff Dashboard</h2>
-          <p className="text-on-surface-variant">Welcome back! Here is your overview for today.</p>
+          <h2 className="text-4xl font-bold text-on-surface mb-2">{role.charAt(0) + role.slice(1).toLowerCase()} Dashboard</h2>
+          <p className="text-on-surface-variant">Your role-scoped overview for today.</p>
         </div>
         <div className="flex gap-3">
-          <button
+          {hasRole('STAFF', 'ADMIN') && <button
             onClick={() => navigate('/patients')}
             className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105"
           >
             <UserPlus size={20} />
             New Patient
-          </button>
-          <button
+          </button>}
+          {hasRole('DOCTOR', 'ADMIN') && <button
             onClick={() => navigate('/lab')}
             className="glass-panel text-on-surface hover:text-primary px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all hover:scale-105"
           >
             <FlaskConical size={20} />
             Order Labs
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -91,7 +97,7 @@ const Dashboard = () => {
         <StatCard icon={Calendar} title="Today's Appointments" value={appointments.length.toString()} subtitle="Live from DB" />
         <StatCard icon={Activity} title="Active Visits" value={activeVisitCount.toString()} subtitle="Today" />
         <StatCard icon={TestTube2} title="Pending Lab Orders" value={pendingLabCount.toString()} subtitle="Live from DB" alert={pendingLabCount > 0} />
-        <StatCard icon={AlertTriangle} title="Low Stock Items" value={lowStockCount.toString()} subtitle={lowStockCount > 0 ? "Requires attention" : "Stock healthy"} alert={lowStockCount > 0} />
+        {hasRole('DOCTOR', 'STAFF', 'ADMIN') && <StatCard icon={AlertTriangle} title="Low Stock Items" value={lowStockCount.toString()} subtitle={lowStockCount > 0 ? "Requires attention" : "Stock healthy"} alert={lowStockCount > 0} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -105,7 +111,7 @@ const Dashboard = () => {
                 <ScheduleItem
                   key={app.id}
                   time={app.timeSlot}
-                  patient={app.patientId}
+                  patient={resolvePatientName(patientNames, app.patientId)}
                   reason={app.reasonForVisit}
                   status={app.status?.name?.toLowerCase() || 'scheduled'}
                 />

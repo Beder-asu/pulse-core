@@ -8,42 +8,42 @@ generator client {
 }
 
 model NotificationType {
-  id            String         @id @default(uuid())
+  id            String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String         @unique // "APPOINTMENT_BOOKED", "LAB_RESULTS_READY", etc.
   description   String?
   notifications Notification[]
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?        @db.Uuid
+  editedBy      String?        @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
 model NotificationChannel {
-  id            String         @id @default(uuid())
+  id            String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String         @unique // "IN_APP", "EMAIL", "BOTH"
   description   String?
   notifications Notification[]
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?        @db.Uuid
+  editedBy      String?        @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
 model Notification {
-  id            String              @id @default(uuid())
-  userId        String
-  patientId     String
-  typeId        String
+  id            String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId        String              @db.Uuid
+  patientId     String              @db.Uuid
+  typeId        String              @db.Uuid
   type          NotificationType    @relation(fields: [typeId], references: [id])
   title         String
   message       String
   isRead        Boolean             @default(false)
-  eventId       String              @unique // Correlates to the Kafka event ID
-  channelId     String
+  eventId       String              @unique @db.Uuid // Correlates to the Kafka event ID
+  channelId     String              @db.Uuid
   channel       NotificationChannel @relation(fields: [channelId], references: [id])
   emailSent     Boolean             @default(false)
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?             @db.Uuid
+  editedBy      String?             @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime            @updatedAt
 

@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, errorHandler, notFound, metricsMiddleware, kafka } = require('@pulsecore/common');
-const { createAppointmentNotification } = require('./controllers/notificationController');
+const { logger, errorHandler, notFound, metricsMiddleware } = require('@pulsecore/common');
+const hospitalEventsConsumer = require('./messaging/consumers/hospitalEventsConsumer');
+const legacyRepairScheduler = require('./maintenance/legacyRepairScheduler');
 
 require('dotenv').config();
 
@@ -22,32 +23,12 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3007;
-
-const startServer = async () => {
+const startServer = () => {
   try {
-    try {
-      await kafka.connectConsumer('hospital.events', async (eventPayload) => {
-        if (eventPayload.event === 'AppointmentCreated') {
-          const { appointmentId, patientId, doctorId, date, timeSlot } = eventPayload.payload;
-          logger.info(`Received AppointmentCreated event via Kafka for appointment ${appointmentId}`);
-          await createAppointmentNotification({
-            eventId: eventPayload.eventId || appointmentId,
-            patientId,
-            doctorId,
-            date,
-            timeSlot
-          });
-        }
-      });
-    } catch (error) {
-      if (process.env.KAFKA_REQUIRED === 'true') {
-        throw error;
-      }
-      logger.warn('Kafka consumer unavailable; notification API will start without event consumption', { error: error.message });
-    }
-
     app.listen(PORT, () => {
       logger.info(`Notification Service running on port ${PORT}`);
+      hospitalEventsConsumer.start();
+      legacyRepairScheduler.schedule();
     });
   } catch (error) {
     logger.error('Failed to start server', { error: error.message });

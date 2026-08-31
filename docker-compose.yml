@@ -42,6 +42,7 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: pulsecore-redis
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
@@ -49,6 +50,11 @@ services:
     networks:
       - hospital-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # ----------------------------------------
   # Frontend and API Gateway
@@ -85,8 +91,6 @@ services:
         condition: service_healthy
       db-setup:
         condition: service_completed_successfully
-      redis:
-        condition: service_started
       auth-service:
         condition: service_started
       patients-service:
@@ -125,6 +129,12 @@ services:
     networks:
       - hospital-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   # ----------------------------------------
   # Microservices
@@ -142,6 +152,7 @@ services:
       - SERVICE_NAME=auth-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
       - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
@@ -163,6 +174,7 @@ services:
       - SERVICE_NAME=patients-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
     networks:
       - hospital-network
     depends_on:
@@ -183,6 +195,12 @@ services:
       - SERVICE_NAME=doctors-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_CONNECT_TIMEOUT_MS=1000
+      - REDIS_RETRY_COOLDOWN_MS=5000
+      - DOCTOR_LIST_CACHE_TTL_SECONDS=300
+      - DOCTOR_PROFILE_CACHE_TTL_SECONDS=300
     networks:
       - hospital-network
     depends_on:
@@ -203,13 +221,17 @@ services:
       - SERVICE_NAME=appointments-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
       - DOCTORS_SERVICE_URL=http://doctors-service:3002
+      - PATIENTS_SERVICE_URL=http://patients-service:3001
       - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
     depends_on:
       db-setup:
         condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
   lab-service:
@@ -225,6 +247,7 @@ services:
       - SERVICE_NAME=lab-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
     networks:
       - hospital-network
     depends_on:
@@ -245,6 +268,7 @@ services:
       - SERVICE_NAME=pharmacy-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
     networks:
       - hospital-network
     depends_on:
@@ -265,6 +289,7 @@ services:
       - SERVICE_NAME=billing-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
     networks:
       - hospital-network
     depends_on:
@@ -285,6 +310,9 @@ services:
       - SERVICE_NAME=notification-service
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-replace-with-long-random-jwt-secret}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-replace-with-long-random-internal-service-secret}
+      - DOCTORS_SERVICE_URL=http://doctors-service:3002
+      - PATIENTS_SERVICE_URL=http://patients-service:3001
       - KAFKA_BROKERS=kafka:29092
     networks:
       - hospital-network
@@ -292,7 +320,7 @@ services:
       db-setup:
         condition: service_completed_successfully
       kafka:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 # ----------------------------------------

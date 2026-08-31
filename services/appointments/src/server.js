@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const { logger, errorHandler, notFound, metricsMiddleware, kafka } = require('@pulsecore/common');
+const { logger, errorHandler, notFound, metricsMiddleware } = require('@pulsecore/common');
+const producerLifecycle = require('./messaging/producerLifecycle');
 
 require('dotenv').config();
 
@@ -24,14 +25,7 @@ const PORT = process.env.PORT || 3003;
 
 const startServer = async () => {
   try {
-    try {
-      await kafka.connectProducer();
-    } catch (error) {
-      if (process.env.KAFKA_REQUIRED === 'true') {
-        throw error;
-      }
-      logger.warn('Kafka producer unavailable; appointment events will be logged as failed until Kafka is restored', { error: error.message });
-    }
+    await producerLifecycle.connect();
 
     app.listen(PORT, () => {
       logger.info(`Appointments Service running on port ${PORT}`);

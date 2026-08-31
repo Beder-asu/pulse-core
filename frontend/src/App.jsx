@@ -12,13 +12,18 @@ import ClinicalPrecision from './pages/ClinicalPrecision';
 import NotFound from './pages/NotFound';
 import PatientsPage from './pages/PatientsPage';
 import AppointmentsPage from './pages/AppointmentsPage';
+import { getCurrentUser } from './auth/roles';
 
 const ProtectedRoute = () => {
-  if (!localStorage.getItem('token')) {
+  if (!localStorage.getItem('token') || !getCurrentUser()) {
     return <Navigate to="/login" replace />;
   }
   return <MainLayout />;
 };
+
+const RoleRoute = ({ roles, children }) => (
+  roles.includes(getCurrentUser()?.role) ? children : <Navigate to="/" replace />
+);
 
 function App() {
   return (
@@ -28,16 +33,14 @@ function App() {
 
         <Route path="/" element={<ProtectedRoute />}>
           <Route index element={<Dashboard />} />
-          <Route path="patients/:id/history" element={<PatientHistory />} />
-          <Route path="lab" element={<LabDashboard />} />
-          <Route path="pharmacy" element={<PharmacyDashboard />} />
-          <Route path="appointments/book" element={<BookAppointment />} />
-          <Route path="billing" element={<BillingPage />} />
-          <Route path="clinical" element={<ClinicalPrecision />} />
-          {/* Fallback for empty paths */}
-          <Route path="patients" element={<PatientsPage />} />
+          <Route path="patients/:id/history" element={<RoleRoute roles={['PATIENT', 'DOCTOR', 'STAFF', 'ADMIN']}><PatientHistory /></RoleRoute>} />
+          <Route path="lab" element={<RoleRoute roles={['PATIENT', 'DOCTOR', 'STAFF', 'ADMIN']}><LabDashboard /></RoleRoute>} />
+          <Route path="pharmacy" element={<RoleRoute roles={['DOCTOR', 'STAFF', 'ADMIN']}><PharmacyDashboard /></RoleRoute>} />
+          <Route path="appointments/book" element={<RoleRoute roles={['PATIENT', 'STAFF', 'ADMIN']}><BookAppointment /></RoleRoute>} />
+          <Route path="billing" element={<RoleRoute roles={['STAFF', 'ADMIN']}><BillingPage /></RoleRoute>} />
+          <Route path="clinical" element={<RoleRoute roles={['DOCTOR', 'STAFF', 'ADMIN']}><ClinicalPrecision /></RoleRoute>} />
+          <Route path="patients" element={<RoleRoute roles={['DOCTOR', 'STAFF', 'ADMIN']}><PatientsPage /></RoleRoute>} />
           <Route path="appointments" element={<AppointmentsPage />} />
-          {/* Catch-all route for 404s */}
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

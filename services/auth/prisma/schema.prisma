@@ -15,12 +15,31 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   email     String   @unique
   password  String
   role      Role     @default(PATIENT)
-  createdBy     String?
-  editedBy      String?
+  createdBy String?   @db.Uuid
+  editedBy  String?   @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt DateTime @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+/// A refresh token is an opaque browser credential. Only its SHA-256 hash is
+/// persisted, so a database disclosure does not expose reusable sessions.
+/// Rotation revokes the current row and links it to its replacement for audit.
+model RefreshToken {
+  id                String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId            String    @db.Uuid
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
 }

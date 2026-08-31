@@ -2,16 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarPlus, RefreshCw } from 'lucide-react';
 import api from '../api/config';
+import { hasRole } from '../auth/roles';
+import { buildDoctorNameMap, buildPatientNameMap, resolveDoctorName, resolvePatientName } from '../utils/identity';
 
 const AppointmentsPage = () => {
   const [appointments, setAppointments] = useState([]);
+  const [patientNames, setPatientNames] = useState(new Map());
+  const [doctorNames, setDoctorNames] = useState(new Map());
   const [status, setStatus] = useState({ loading: true, error: '' });
 
   const loadAppointments = async () => {
     setStatus({ loading: true, error: '' });
     try {
-      const { data } = await api.get('/appointments');
-      setAppointments(data || []);
+      const [appointmentsRes, patientsRes, doctorsRes] = await Promise.all([
+        api.get('/appointments'),
+        api.get('/patients'),
+        api.get('/doctors')
+      ]);
+      setAppointments(appointmentsRes.data || []);
+      setPatientNames(buildPatientNameMap(patientsRes.data));
+      setDoctorNames(buildDoctorNameMap(doctorsRes.data));
     } catch (error) {
       setStatus({ loading: false, error: error.response?.data?.message || 'Unable to load appointments' });
       return;
@@ -32,7 +42,7 @@ const AppointmentsPage = () => {
         </div>
         <div className="flex gap-3">
           <button onClick={loadAppointments} className="glass-panel px-4 py-2 rounded-lg flex items-center gap-2"><RefreshCw size={18} /> Refresh</button>
-          <Link to="/appointments/book" className="bg-primary text-on-primary px-4 py-2 rounded-lg font-bold flex items-center gap-2"><CalendarPlus size={18} /> Book</Link>
+          {hasRole('PATIENT', 'STAFF', 'ADMIN') && <Link to="/appointments/book" className="bg-primary text-on-primary px-4 py-2 rounded-lg font-bold flex items-center gap-2"><CalendarPlus size={18} /> Book</Link>}
         </div>
       </div>
 
@@ -61,8 +71,8 @@ const AppointmentsPage = () => {
                   <tr key={appointment.id} className="table-row-hover">
                     <td className="p-4">{new Date(appointment.date).toLocaleDateString()}</td>
                     <td className="p-4">{appointment.timeSlot}</td>
-                    <td className="p-4">{appointment.patientId}</td>
-                    <td className="p-4">{appointment.doctorId}</td>
+                    <td className="p-4">{resolvePatientName(patientNames, appointment.patientId)}</td>
+                    <td className="p-4">{resolveDoctorName(doctorNames, appointment.doctorId)}</td>
                     <td className="p-4">{appointment.reasonForVisit}</td>
                     <td className="p-4"><span className="rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-bold">{appointment.status?.name || 'SCHEDULED'}</span></td>
                   </tr>

@@ -8,29 +8,29 @@ generator client {
 }
 
 model AppointmentStatus {
-  id           String        @id @default(uuid())
+  id           String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name         String        @unique // e.g. "SCHEDULED", "COMPLETED", "CANCELLED", "NO_SHOW"
   description  String?
   appointments Appointment[]
-  createdBy     String?
-  editedBy      String?
+  createdBy    String?       @db.Uuid
+  editedBy     String?       @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt    DateTime      @updatedAt
 }
 
 model Appointment {
-  id             String            @id @default(uuid())
-  patientId      String
-  doctorId       String
+  id             String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  patientId      String            @db.Uuid
+  doctorId       String            @db.Uuid
   date           DateTime
   timeSlot       String
-  statusId       String
+  statusId       String            @db.Uuid
   status         AppointmentStatus @relation(fields: [statusId], references: [id])
   reasonForVisit String
   notes          String?
   lockedAt       DateTime?
-  createdBy     String?
-  editedBy      String?
+  createdBy      String?           @db.Uuid
+  editedBy       String?           @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt      DateTime          @updatedAt
 

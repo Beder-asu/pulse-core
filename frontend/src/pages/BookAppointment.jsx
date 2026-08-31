@@ -12,7 +12,7 @@ const BookAppointment = () => {
   });
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [status, setStatus] = useState({ loading: false, error: null, success: false });
+  const [status, setStatus] = useState({ loading: false, error: null, success: false, notificationQueued: false });
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -31,7 +31,7 @@ const BookAppointment = () => {
           doctorId: current.doctorId || nextDoctors[0]?.userId || ''
         }));
       } catch (error) {
-        setStatus({ loading: false, error: error.response?.data?.message || 'Unable to load patients and doctors', success: false });
+        setStatus({ loading: false, error: error.response?.data?.message || 'Unable to load patients and doctors', success: false, notificationQueued: false });
       }
     };
 
@@ -44,11 +44,11 @@ const BookAppointment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ loading: true, error: null, success: false });
+    setStatus({ loading: true, error: null, success: false, notificationQueued: false });
 
     try {
-      await api.post('/appointments', formData);
-      setStatus({ loading: false, error: null, success: true });
+      const { data } = await api.post('/appointments', formData);
+      setStatus({ loading: false, error: null, success: true, notificationQueued: data.notificationQueued === true });
       // Reset form on success
       setFormData({ ...formData, date: '', timeSlot: '', reasonForVisit: '' });
     } catch (error) {
@@ -56,7 +56,8 @@ const BookAppointment = () => {
       setStatus({
         loading: false,
         error: error.response?.data?.message || 'Failed to book appointment',
-        success: false
+        success: false,
+        notificationQueued: false
       });
     }
   };
@@ -70,7 +71,11 @@ const BookAppointment = () => {
           <CheckCircle2 size={24} />
           <div>
             <p className="font-bold">Appointment Confirmed!</p>
-            <p className="text-sm">The event has been dispatched to Kafka.</p>
+            <p className="text-sm">
+              {status.notificationQueued
+                ? 'The notification event has been queued.'
+                : 'The appointment was saved, but its notification could not be queued.'}
+            </p>
           </div>
         </div>
       )}
@@ -87,7 +92,7 @@ const BookAppointment = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">Patient ID</label>
+              <label className="block text-sm font-medium text-on-surface-variant mb-2">Patient</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary">
                   <User size={20} />
@@ -101,14 +106,14 @@ const BookAppointment = () => {
                 >
                   <option value="" disabled>Select a patient</option>
                   {patients.map((patient) => (
-                    <option key={patient.id} value={patient.userId}>{patient.firstName} {patient.lastName} ({patient.userId})</option>
+                    <option key={patient.id} value={patient.userId}>{patient.firstName} {patient.lastName}</option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">Doctor ID</label>
+              <label className="block text-sm font-medium text-on-surface-variant mb-2">Doctor</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary">
                   <User size={20} />

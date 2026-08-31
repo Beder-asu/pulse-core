@@ -8,16 +8,16 @@ generator client {
 }
 
 model PatientProfile {
-  id            String    @id @default(uuid())
-  userId        String    @unique // Links to Auth Service User.id
+  id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId        String    @unique @db.Uuid // Links to Auth Service User.id
   firstName     String
   lastName      String
   dateOfBirth   DateTime?
   contactNumber String?
   address       String?
   bloodGroup    String?
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?   @db.Uuid
+  editedBy      String?   @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime  @updatedAt
 }

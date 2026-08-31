@@ -8,40 +8,40 @@ generator client {
 }
 
 model Department {
-  id          String          @id @default(uuid())
+  id          String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name        String          @unique
   description String?
   doctors     DoctorProfile[]
-  createdBy     String?
-  editedBy      String?
+  createdBy   String?         @db.Uuid
+  editedBy    String?         @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt   DateTime        @updatedAt
 }
 
 model Specialization {
-  id          String          @id @default(uuid())
+  id          String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name        String          @unique
   description String?
   doctors     DoctorProfile[]
-  createdBy     String?
-  editedBy      String?
+  createdBy   String?         @db.Uuid
+  editedBy    String?         @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt   DateTime        @updatedAt
 }
 
 model DoctorProfile {
-  id               String         @id @default(uuid())
-  userId           String         @unique // Links to Auth Service User.id
+  id               String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId           String         @unique @db.Uuid // Links to Auth Service User.id
   firstName        String
   lastName         String
-  departmentId     String
+  departmentId     String         @db.Uuid
   department       Department     @relation(fields: [departmentId], references: [id])
-  specializationId String
+  specializationId String         @db.Uuid
   specialization   Specialization @relation(fields: [specializationId], references: [id])
   contactNumber    String?
   isAvailable      Boolean        @default(true)
-  createdBy     String?
-  editedBy      String?
+  createdBy        String?        @db.Uuid
+  editedBy         String?        @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt        DateTime       @updatedAt
 }

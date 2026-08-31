@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pill, RefreshCw, Send } from 'lucide-react';
 import api from '../api/config';
+import { hasRole } from '../auth/roles';
+import { buildPatientNameMap, resolvePatientName } from '../utils/identity';
 
 const PharmacyDashboard = () => {
+  const canPrescribe = hasRole('DOCTOR', 'ADMIN');
+  const canDispense = hasRole('STAFF', 'ADMIN');
   const [inventory, setInventory] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState({ patientId: '', medicineId: '', dosage: '1 tablet', frequency: 'Twice daily', durationDays: 5, notes: '' });
   const [status, setStatus] = useState({ loading: true, saving: false, error: '', success: '' });
+  const patientNames = buildPatientNameMap(patients);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setStatus((current) => ({ ...current, loading: true, error: '' }));
     try {
       const [inventoryRes, prescriptionsRes, patientsRes] = await Promise.all([
@@ -32,11 +37,11 @@ const PharmacyDashboard = () => {
     } finally {
       setStatus((current) => ({ ...current, loading: false }));
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const createPrescription = async (event) => {
     event.preventDefault();
@@ -86,8 +91,8 @@ const PharmacyDashboard = () => {
         <div className={`rounded-lg border p-4 ${status.error ? 'border-error bg-error/10 text-error' : 'border-green-400 bg-green-400/10 text-green-300'}`}>{status.error || status.success}</div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6">
-        <form onSubmit={createPrescription} className="glass-panel rounded-xl p-6 space-y-4">
+      <div className={`grid grid-cols-1 ${canPrescribe ? 'xl:grid-cols-[420px_1fr]' : ''} gap-6`}>
+        {canPrescribe && <form onSubmit={createPrescription} className="glass-panel rounded-xl p-6 space-y-4">
           <h3 className="text-xl font-bold flex items-center gap-2"><Pill size={20} /> New Prescription</h3>
           <Select label="Patient" value={formData.patientId} onChange={(value) => setFormData({ ...formData, patientId: value })} options={patients.map((patient) => ({ value: patient.userId, label: `${patient.firstName} ${patient.lastName}` }))} />
           <Select label="Medicine" value={formData.medicineId} onChange={(value) => setFormData({ ...formData, medicineId: value })} options={inventory.map((item) => ({ value: item.id, label: `${item.medicineName} (${item.stockQuantity} in stock)` }))} />
@@ -96,7 +101,7 @@ const PharmacyDashboard = () => {
           <Input type="number" label="Duration Days" value={formData.durationDays} onChange={(value) => setFormData({ ...formData, durationDays: value })} />
           <Input label="Notes" value={formData.notes} onChange={(value) => setFormData({ ...formData, notes: value })} />
           <button disabled={status.saving} className="w-full bg-primary text-on-primary font-bold py-3 rounded-lg flex items-center justify-center gap-2"><Send size={18} /> Prescribe</button>
-        </form>
+        </form>}
 
         <div className="space-y-6">
           <div className="glass-panel rounded-xl overflow-hidden">
@@ -121,12 +126,12 @@ const PharmacyDashboard = () => {
                 {prescriptions.map((prescription) => (
                   <div key={prescription.id} className="p-5 flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="font-bold">{prescription.patientId}</p>
+                      <p className="font-bold">{resolvePatientName(patientNames, prescription.patientId)}</p>
                       <p className="text-sm text-on-surface-variant">{prescription.medications.map((med) => med.inventory?.medicineName).join(', ')}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-bold">{prescription.status?.name}</span>
-                      {prescription.status?.name !== 'DISPENSED' && <button onClick={() => dispense(prescription)} className="glass-panel rounded-lg px-3 py-2">Dispense</button>}
+                      {canDispense && prescription.status?.name !== 'DISPENSED' && <button onClick={() => dispense(prescription)} className="glass-panel rounded-lg px-3 py-2">Dispense</button>}
                     </div>
                   </div>
                 ))}

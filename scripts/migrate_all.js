@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 const services = ['auth', 'patients', 'doctors', 'appointments', 'lab', 'pharmacy', 'billing', 'notification'];
@@ -7,22 +7,34 @@ const port = process.env.POSTGRES_PORT || '5434';
 const user = process.env.POSTGRES_USER || 'postgres';
 const password = process.env.POSTGRES_PASSWORD || 'replace-with-local-demo-password';
 
-services.forEach(service => {
+const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const uuidSqlPath = path.join(__dirname, 'uuidv7.sql');
+
+for (const service of services) {
   console.log(`\n\n========================================`);
   console.log(`Migrating ${service}...`);
   console.log(`========================================\n`);
+  const cwd = path.join(__dirname, '..', 'services', service);
+  const env = {
+    ...process.env,
+    POSTGRES_BASE_URL: `postgresql://${user}:${password}@${host}:${port}/${service}_db`
+  };
+
   try {
-    execSync('npx prisma db push --accept-data-loss', {
-      cwd: path.join(__dirname, '..', 'services', service),
-      env: {
-        ...process.env,
-        POSTGRES_BASE_URL: `postgresql://${user}:${password}@${host}:${port}/${service}_db`
-      },
+    execFileSync(npx, ['prisma', 'db', 'execute', '--file', uuidSqlPath, '--schema', 'prisma/schema.prisma'], {
+      cwd,
+      env,
+      stdio: 'inherit'
+    });
+    execFileSync(npx, ['prisma', 'db', 'push', '--accept-data-loss'], {
+      cwd,
+      env,
       stdio: 'inherit'
     });
     console.log(`SUCCESS: ${service}`);
   } catch (error) {
     console.error(`FAILED: ${service}`);
+    process.exit(1);
   }
-});
+}
 console.log('\nAll migrations completed.');

@@ -1,46 +1,20 @@
-const { PrismaClient } = require('@prisma/client');
-const { logger } = require('@pulsecore/common');
+const doctorProfileService = require('../services/doctorProfileService');
 
-const prisma = new PrismaClient();
+const forwardError = (error, res, next) => {
+  if (error.statusCode) res.status(error.statusCode);
+  next(error);
+};
 
 // @desc    Create doctor profile
 // @route   POST /api/doctors/profile
 // @access  Private (Admin/Staff/Self)
 const createProfile = async (req, res, next) => {
   try {
-    const { firstName, lastName, departmentId, specializationId, contactNumber } = req.body;
-    const userId = req.user.id;
-
-    if (!firstName || !lastName || !departmentId || !specializationId) {
-      res.status(400);
-      throw new Error('First name, last name, department, and specialization are required');
-    }
-
-    const existing = await prisma.doctorProfile.findUnique({ where: { userId } });
-    if (existing) {
-      res.status(400);
-      throw new Error('Profile already exists');
-    }
-
-    const profile = await prisma.doctorProfile.create({
-      data: {
-        userId,
-        firstName,
-        lastName,
-        departmentId,
-        specializationId,
-        contactNumber
-      },
-      include: {
-        department: true,
-        specialization: true
-      }
-    });
-
-    logger.info(`Doctor profile created for user: ${userId}`);
+    const userId = req.body.userId || req.user.id;
+    const profile = await doctorProfileService.createProfile({ ...req.body, requester: req.user, userId });
     res.status(201).json(profile);
   } catch (error) {
-    next(error);
+    forwardError(error, res, next);
   }
 };
 
@@ -49,15 +23,9 @@ const createProfile = async (req, res, next) => {
 // @access  Public
 const getDoctors = async (req, res, next) => {
   try {
-    const doctors = await prisma.doctorProfile.findMany({
-      include: {
-        department: true,
-        specialization: true
-      }
-    });
-    res.json(doctors);
+    res.json(await doctorProfileService.getProfiles());
   } catch (error) {
-    next(error);
+    forwardError(error, res, next);
   }
 };
 
@@ -66,27 +34,9 @@ const getDoctors = async (req, res, next) => {
 // @access  Public
 const getDoctorById = async (req, res, next) => {
   try {
-    const doctor = await prisma.doctorProfile.findFirst({
-      where: {
-        OR: [
-          { id: req.params.id },
-          { userId: req.params.id }
-        ]
-      },
-      include: {
-        department: true,
-        specialization: true
-      }
-    });
-
-    if (!doctor) {
-      res.status(404);
-      throw new Error('Doctor profile not found');
-    }
-
-    res.json(doctor);
+    res.json(await doctorProfileService.getProfileById(req.params.id));
   } catch (error) {
-    next(error);
+    forwardError(error, res, next);
   }
 };
 

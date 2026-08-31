@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, RefreshCw, UserRound } from 'lucide-react';
 import api from '../api/config';
+import { hasRole } from '../auth/roles';
 
 const initialForm = {
-  userId: '',
+  email: '',
+  password: 'replace-with-local-demo-password',
   firstName: '',
   lastName: '',
   dateOfBirth: '',
@@ -14,6 +16,7 @@ const initialForm = {
 };
 
 const PatientsPage = () => {
+  const canAdmit = hasRole('STAFF', 'ADMIN');
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState(initialForm);
   const [status, setStatus] = useState({ loading: true, saving: false, error: '', success: '' });
@@ -38,7 +41,9 @@ const PatientsPage = () => {
     event.preventDefault();
     setStatus((current) => ({ ...current, saving: true, error: '', success: '' }));
     try {
-      await api.post('/patients/profile', formData);
+      const { email, password, ...profile } = formData;
+      const { data: user } = await api.post('/auth/register', { email, password, role: 'PATIENT' });
+      await api.post('/patients/profile', { ...profile, userId: user.id });
       setFormData(initialForm);
       setStatus((current) => ({ ...current, success: 'Patient profile created' }));
       await loadPatients();
@@ -67,10 +72,11 @@ const PatientsPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6">
-        <form onSubmit={handleSubmit} className="glass-panel rounded-xl p-6 space-y-4">
+      <div className={`grid grid-cols-1 ${canAdmit ? 'xl:grid-cols-[420px_1fr]' : ''} gap-6`}>
+        {canAdmit && <form onSubmit={handleSubmit} className="glass-panel rounded-xl p-6 space-y-4">
           <h3 className="text-xl font-bold flex items-center gap-2"><Plus size={20} /> New Patient</h3>
-          <Input label="Patient User ID" value={formData.userId} onChange={(value) => setFormData({ ...formData, userId: value })} placeholder="PAT-456" required />
+          <Input type="email" label="Email" value={formData.email} onChange={(value) => setFormData({ ...formData, email: value })} placeholder="patient@example.com" required />
+          <Input type="password" label="Temporary Password" value={formData.password} onChange={(value) => setFormData({ ...formData, password: value })} required />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="First Name" value={formData.firstName} onChange={(value) => setFormData({ ...formData, firstName: value })} required />
             <Input label="Last Name" value={formData.lastName} onChange={(value) => setFormData({ ...formData, lastName: value })} required />
@@ -84,7 +90,7 @@ const PatientsPage = () => {
           <button disabled={status.saving} className="w-full bg-primary text-on-primary font-bold py-3 rounded-lg disabled:opacity-50">
             {status.saving ? 'Creating...' : 'Create Patient'}
           </button>
-        </form>
+        </form>}
 
         <div className="glass-panel rounded-xl overflow-hidden">
           {status.loading ? (
@@ -99,7 +105,7 @@ const PatientsPage = () => {
                     <div className="h-10 w-10 rounded-full bg-primary/20 text-primary flex items-center justify-center"><UserRound size={20} /></div>
                     <div>
                       <p className="font-bold">{patient.firstName} {patient.lastName}</p>
-                      <p className="text-sm text-on-surface-variant">{patient.userId} - {patient.bloodGroup || 'Blood group not set'}</p>
+                      <p className="text-sm text-on-surface-variant">{patient.bloodGroup ? `Blood group ${patient.bloodGroup}` : 'Blood group not set'}</p>
                     </div>
                   </div>
                   <Link className="text-primary font-semibold" to={`/patients/${patient.userId}/history`}>View history</Link>

@@ -8,40 +8,40 @@ generator client {
 }
 
 model PrescriptionStatus {
-  id            String         @id @default(uuid())
+  id            String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String         @unique // "PENDING", "DISPENSED", "CANCELLED"
   description   String?
   prescriptions Prescription[]
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?        @db.Uuid
+  editedBy      String?        @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
 model Inventory {
-  id            String             @id @default(uuid())
+  id            String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   medicineName  String             @unique
   stockQuantity Int                @default(0)
   unitPrice     Float
   supplier      String?
   expiryDate    DateTime?
   medications   PrescribedMedication[]
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?            @db.Uuid
+  editedBy      String?            @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime           @updatedAt
 }
 
 model Prescription {
-  id            String                 @id @default(uuid())
-  patientId     String
-  doctorId      String
-  statusId      String
+  id            String                 @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  patientId     String                 @db.Uuid
+  doctorId      String                 @db.Uuid
+  statusId      String                 @db.Uuid
   status        PrescriptionStatus     @relation(fields: [statusId], references: [id])
   medications   PrescribedMedication[]
   notes         String?
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?                @db.Uuid
+  editedBy      String?                @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime               @updatedAt
 
@@ -50,10 +50,10 @@ model Prescription {
 
 // Join table for Prescription -> Inventory medication lines.
 model PrescribedMedication {
-  id             String       @id @default(uuid())
-  prescriptionId String
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  prescriptionId String       @db.Uuid
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  inventoryId    String
+  inventoryId    String       @db.Uuid
   inventory      Inventory    @relation(fields: [inventoryId], references: [id])
   dosage         String
   frequency      String

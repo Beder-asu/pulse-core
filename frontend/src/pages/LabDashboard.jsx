@@ -1,17 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { FlaskConical, RefreshCw, Save } from 'lucide-react';
 import api from '../api/config';
+import { hasRole } from '../auth/roles';
+import { buildPatientNameMap, resolvePatientName } from '../utils/identity';
 
 const LabDashboard = () => {
+  const canCreate = hasRole('DOCTOR', 'ADMIN');
+  const canComplete = hasRole('STAFF', 'ADMIN');
   const [orders, setOrders] = useState([]);
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState({ patientId: '', testName: '', notes: '' });
   const [status, setStatus] = useState({ loading: true, saving: false, error: '', success: '' });
+  const patientNames = buildPatientNameMap(patients);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setStatus((current) => ({ ...current, loading: true, error: '' }));
     try {
-      const [ordersRes, patientsRes] = await Promise.all([api.get('/lab/orders'), api.get('/patients')]);
+      const [ordersRes, patientsRes] = await Promise.all([
+        api.get('/lab/orders'),
+        api.get('/patients')
+      ]);
       const nextPatients = patientsRes.data || [];
       setOrders(ordersRes.data || []);
       setPatients(nextPatients);
@@ -21,11 +29,11 @@ const LabDashboard = () => {
     } finally {
       setStatus((current) => ({ ...current, loading: false }));
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const createOrder = async (event) => {
     event.preventDefault();
@@ -63,7 +71,7 @@ const LabDashboard = () => {
         <div className={`rounded-lg border p-4 ${status.error ? 'border-error bg-error/10 text-error' : 'border-green-400 bg-green-400/10 text-green-300'}`}>{status.error || status.success}</div>
       )}
 
-      <form onSubmit={createOrder} className="glass-panel p-6 rounded-xl grid grid-cols-1 lg:grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
+      {canCreate && <form onSubmit={createOrder} className="glass-panel p-6 rounded-xl grid grid-cols-1 lg:grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
         <label>
           <span className="block text-sm text-on-surface-variant mb-2">Patient</span>
           <select value={formData.patientId} onChange={(event) => setFormData({ ...formData, patientId: event.target.value })} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-3">
@@ -79,7 +87,7 @@ const LabDashboard = () => {
           <input value={formData.notes} onChange={(event) => setFormData({ ...formData, notes: event.target.value })} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-3" />
         </label>
         <button disabled={status.saving} className="bg-primary text-on-primary font-bold px-5 py-3 rounded-lg flex items-center gap-2 justify-center"><FlaskConical size={18} /> Order</button>
-      </form>
+      </form>}
 
       <div className="glass-panel rounded-xl overflow-hidden">
         {status.loading ? <p className="p-6 text-on-surface-variant">Loading lab orders...</p> : orders.length === 0 ? <p className="p-6 text-on-surface-variant">No lab orders yet.</p> : (
@@ -88,12 +96,12 @@ const LabDashboard = () => {
               <div key={order.id} className="p-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="font-bold">{order.testName}</p>
-                  <p className="text-sm text-on-surface-variant">{order.patientId} - {order.priority?.name} - {new Date(order.createdAt).toLocaleString()}</p>
+                  <p className="text-sm text-on-surface-variant">{resolvePatientName(patientNames, order.patientId)} - {order.priority?.name} - {new Date(order.createdAt).toLocaleString()}</p>
                   {order.result && <p className="text-sm text-green-300 mt-2">{order.result}</p>}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-bold">{order.status?.name}</span>
-                  {order.status?.name !== 'COMPLETED' && <button onClick={() => completeOrder(order)} className="glass-panel px-3 py-2 rounded-lg flex items-center gap-2"><Save size={16} /> Result</button>}
+                  {canComplete && order.status?.name !== 'COMPLETED' && <button onClick={() => completeOrder(order)} className="glass-panel px-3 py-2 rounded-lg flex items-center gap-2"><Save size={16} /> Result</button>}
                 </div>
               </div>
             ))}

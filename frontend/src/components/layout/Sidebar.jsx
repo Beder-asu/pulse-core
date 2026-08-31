@@ -1,17 +1,21 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, TestTube2, Pill, FileText, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, TestTube2, Pill, FileText, Activity, History } from 'lucide-react';
+import { getCurrentUser } from '../../auth/roles';
 
 const Sidebar = () => {
+  const user = getCurrentUser();
+  const role = user?.role;
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Calendar, label: 'Appointments', path: '/appointments/book' },
-    { icon: TestTube2, label: 'Laboratory', path: '/lab' },
-    { icon: Pill, label: 'Pharmacy', path: '/pharmacy' },
-    { icon: FileText, label: 'Billing', path: '/billing' },
-    { icon: Activity, label: 'Clinical', path: '/clinical' },
-  ];
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['PATIENT', 'DOCTOR', 'STAFF', 'ADMIN'] },
+    { icon: History, label: 'My History', path: `/patients/${user?.id}/history`, roles: ['PATIENT'] },
+    { icon: Users, label: 'Patients', path: '/patients', roles: ['DOCTOR', 'STAFF', 'ADMIN'] },
+    { icon: Calendar, label: 'Appointments', path: '/appointments', roles: ['PATIENT', 'DOCTOR', 'STAFF', 'ADMIN'] },
+    { icon: TestTube2, label: 'Laboratory', path: '/lab', roles: ['PATIENT', 'DOCTOR', 'STAFF', 'ADMIN'] },
+    { icon: Pill, label: 'Pharmacy', path: '/pharmacy', roles: ['DOCTOR', 'STAFF', 'ADMIN'] },
+    { icon: FileText, label: 'Billing', path: '/billing', roles: ['STAFF', 'ADMIN'] },
+    { icon: Activity, label: 'Clinical', path: '/clinical', roles: ['DOCTOR', 'STAFF', 'ADMIN'] },
+  ].filter((item) => item.roles.includes(role));
 
   return (
     <nav className="fixed left-0 top-0 h-screen w-[280px] border-r border-outline-variant bg-surface/60 backdrop-blur-xl flex flex-col z-50">
@@ -25,14 +29,14 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <div className="px-4 py-6">
+      {['STAFF', 'ADMIN'].includes(role) && <div className="px-4 py-6">
         <NavLink
           to="/patients"
           className="w-full bg-primary text-on-primary py-3 px-4 rounded-lg font-title-md text-title-md hover:scale-[1.02] transition-transform duration-200 flex items-center justify-center gap-2"
         >
           <span>+ New Admission</span>
         </NavLink>
-      </div>
+      </div>}
 
       <div className="flex-1 overflow-y-auto py-2 flex flex-col gap-1">
         {navItems.map((item) => (

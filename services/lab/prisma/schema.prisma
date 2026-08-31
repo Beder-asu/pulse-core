@@ -8,41 +8,41 @@ generator client {
 }
 
 model LabStatus {
-  id          String     @id @default(uuid())
+  id          String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name        String     @unique // "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
   description String?
   orders      LabOrder[]
-  createdBy     String?
-  editedBy      String?
+  createdBy   String?    @db.Uuid
+  editedBy    String?    @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt   DateTime   @updatedAt
 }
 
 model LabPriority {
-  id          String     @id @default(uuid())
+  id          String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name        String     @unique // "ROUTINE", "URGENT", "STAT"
   description String?
   orders      LabOrder[]
-  createdBy     String?
-  editedBy      String?
+  createdBy   String?    @db.Uuid
+  editedBy    String?    @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt   DateTime   @updatedAt
 }
 
 model LabOrder {
-  id            String      @id @default(uuid())
-  patientId     String
-  doctorId      String
+  id            String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  patientId     String      @db.Uuid
+  doctorId      String      @db.Uuid
   testName      String
-  statusId      String
+  statusId      String      @db.Uuid
   status        LabStatus   @relation(fields: [statusId], references: [id])
-  priorityId    String
+  priorityId    String      @db.Uuid
   priority      LabPriority @relation(fields: [priorityId], references: [id])
   result        String?
   resultFileUrl String?
   notes         String?
-  createdBy     String?
-  editedBy      String?
+  createdBy     String?     @db.Uuid
+  editedBy      String?     @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime    @updatedAt
 
