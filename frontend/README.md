@@ -1,16 +1,28 @@
-# React + Vite
+# PulseCore Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This is the React/Vite single-page application for PulseCore. In the Docker Compose stack it is built into static files and served by the frontend Nginx container behind the public API gateway at `http://localhost`.
 
-Currently, two official plugins are available:
+## Local Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+The Vite dev server runs on `http://localhost:5173`. API calls use the `/api` prefix and are proxied to the gateway, so local development exercises the same backend route structure as the Compose deployment.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Structure
 
-## Expanding the Oxlint configuration
+- `src/api/config.js`: shared Axios client, access-token attachment, refresh handling, and login redirects.
+- `src/auth/roles.js`: current-user helpers and role checks used by protected routes/navigation.
+- `src/components/layout`: app shell, sidebar, and notification-aware top bar.
+- `src/pages`: dashboard and domain workflows for patients, appointments, lab, pharmacy, billing, clinical summary, and patient history.
+- `src/utils/identity.js`: profile/user identifier helpers used to display names instead of raw UUIDs.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Production Build
+
+```bash
+npm run build
+```
+
+The resulting `dist` output is intentionally ignored by Git and generated inside the Docker build.

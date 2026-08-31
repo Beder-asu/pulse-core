@@ -19,7 +19,6 @@ const common = {
 // Lazy getters keep non-messaging services from constructing Kafka adapters
 // simply because they import the shared package for logging or middleware.
 Object.defineProperties(common, {
-  kafka: { enumerable: true, get: () => require('./kafka') },
   kafkaPublisher: { enumerable: true, get: () => require('./kafka-publisher') },
   kafkaConsumer: { enumerable: true, get: () => require('./kafka-consumer') },
   redisCache: { enumerable: true, get: () => require('./redis-client') }

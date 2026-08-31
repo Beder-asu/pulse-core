@@ -53,13 +53,14 @@ Kafka uses a unique architecture that makes it drastically faster and more scala
    await consumer.run({ eachMessage: async ({ message }) => console.log(message.value) })
    ```
 
-## 5. How We Will Wire It Up in Our App
-We are going to implement Kafka to completely decouple our Hospital Management System.
+## 5. How It Is Wired in Our App
+Kafka is currently used for one production flow: appointments publish hospital events, and notifications consume them.
 
-1. **The Shared Utility (`packages/common/src/kafka.js`)**
-   We will install `kafkajs` in our shared `@pulsecore/common` package and create a `KafkaService` class. This prevents us from having to write raw connection and retry logic 8 different times.
-2. **Global Integration**
-   We will update `services/appointments/src/server.js` to instantiate the Producer and fire an `AppointmentCreated` event.
-   We will update `services/notification/src/server.js` to instantiate the Consumer and listen for that exact event.
-3. **OpenTelemetry Auto-Trace**
-   Because we already installed OpenTelemetry, `kafkajs` will automatically inject the active `Trace ID` into the headers of the Kafka message. This means in Jaeger, you will literally see a line connecting the `appointments-service` to the `notification-service`, even though they never communicated over HTTP!
+1. **Shared Kafka Adapters**
+   The reusable Kafka connection logic lives in `packages/common/src/kafka-publisher.js` and `packages/common/src/kafka-consumer.js`. The shared package exports them lazily so services that only need logging, auth, metrics, or Redis do not construct Kafka clients.
+2. **Appointment Publisher**
+   `services/appointments/src/messaging/producerLifecycle.js` starts and stops the producer for the appointments service. `services/appointments/src/messaging/publishers/appointmentCreatedPublisher.js` publishes `AppointmentCreated` events to the `hospital.events` topic after an appointment is persisted.
+3. **Notification Consumer**
+   `services/notification/src/messaging/consumerLifecycle.js` starts and stops the consumer for the notification service. `services/notification/src/messaging/consumers/hospitalEventsConsumer.js` subscribes to `hospital.events` and turns `AppointmentCreated` messages into persisted notifications.
+4. **OpenTelemetry Tracing**
+   OpenTelemetry instrumentation is loaded before each service starts. HTTP requests are traced today, and Kafka message handling runs inside the instrumented services. If deeper producer-to-consumer trace propagation is needed later, the next step is to explicitly pass trace context in Kafka message headers.
