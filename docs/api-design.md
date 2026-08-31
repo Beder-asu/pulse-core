@@ -15,9 +15,11 @@ The current gateway is Nginx. It routes browser requests from `/api/*` to the ma
 
 CORS handling is centralized in `nginx/cors.conf`.
 
-## Authentication
+## Authentication And Sessions
 
-The Auth service owns registration and login. It hashes passwords with bcrypt and returns JWTs signed with `JWT_SECRET`.
+The Auth service owns registration, login, refresh, and logout. It hashes passwords with bcrypt and returns access JWTs signed with `JWT_SECRET`.
+
+Login returns a short-lived access JWT in the JSON response and sets an opaque refresh token in an HttpOnly cookie. The Auth database stores only a SHA-256 hash of that refresh token. Refresh requests rotate the cookie and revoke the previous refresh-token row, so a reused old refresh token causes the user's active refresh-token family to be revoked.
 
 Protected services use `@pulsecore/common` middleware to:
 
@@ -37,6 +39,14 @@ Each service owns a separate PostgreSQL database and Prisma schema. The root `np
 Appointments can synchronously verify doctor existence by calling the doctors service when `DOCTORS_SERVICE_URL` is configured.
 
 Kafka topic `hospital.events` currently carries `AppointmentCreated` events. The notification service consumes those events and persists in-app notifications. Other billing/lab/pharmacy event consumers are not implemented in the current code.
+
+## Redis Cache
+
+The Doctors service uses Redis through `packages/common/src/redis-client.js` and `services/doctors/src/cache/doctorProfileCache.js`. The cache policy is service-owned: doctor list/profile reads check Redis first, database misses are written back with a TTL, and doctor profile creation invalidates the list key before warming profile aliases. Redis outages fail open and requests continue through PostgreSQL.
+
+## Observability
+
+Services expose `/metrics` endpoints through shared middleware and Prometheus scrapes all eight service targets. Docker starts each service with `node --require /app/node_modules/@pulsecore/common/src/tracing.js`, which preloads OpenTelemetry before application modules and exports spans directly to Jaeger over OTLP gRPC. Grafana provisions Prometheus and Loki data sources, but Jaeger is viewed through its own UI.
 
 ## Error Shape
 
