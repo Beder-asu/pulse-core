@@ -1,7 +1,7 @@
 const { logger } = require('@pulsecore/common');
 const userRepository = require('../repositories/userRepository');
 const passwordService = require('./passwordService');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 
 const createRegistrationService = ({ users, passwords, serviceLogger }) => ({
   register: async ({ email, password }) => {

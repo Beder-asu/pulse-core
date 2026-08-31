@@ -1,7 +1,7 @@
 const { logger } = require('@pulsecore/common');
 const inventoryRepository = require('../repositories/inventoryRepository');
 const prescriptionRepository = require('../repositories/prescriptionRepository');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const pharmacyAccessPolicy = require('../policies/pharmacyAccessPolicy');
 
 const createDispensingService = ({ inventory, prescriptions, access, serviceLogger }) => ({

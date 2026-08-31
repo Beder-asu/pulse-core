@@ -1,4 +1,4 @@
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 
 const assertCanCreate = (requester, userId) => {
   if (['ADMIN', 'STAFF', 'SYSTEM'].includes(requester.role)) return;

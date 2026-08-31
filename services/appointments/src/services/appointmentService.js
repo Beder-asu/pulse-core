@@ -4,7 +4,7 @@ const doctorClient = require('../clients/doctorClient');
 const patientClient = require('../clients/patientClient');
 const appointmentCreatedPublisher = require('../messaging/publishers/appointmentCreatedPublisher');
 const { validateNewAppointment, validateAppointmentFilters } = require('../validators/appointmentValidator');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const appointmentAccessPolicy = require('../policies/appointmentAccessPolicy');
 
 const createAppointmentService = ({ appointments, doctors, patients, publisher, access, serviceLogger, kafkaRequired }) => ({

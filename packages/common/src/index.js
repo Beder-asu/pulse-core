@@ -3,6 +3,7 @@ const { protect, authorize } = require('./auth-middleware');
 const { errorHandler, notFound } = require('./error-handler');
 const { metricsMiddleware } = require('./metrics');
 const { uuidv7, isUuidV7, requireOptionalUuidV7 } = require('./uuid');
+const { createServiceError } = require('./service-error');
 
 const common = {
   logger,
@@ -11,6 +12,7 @@ const common = {
   errorHandler,
   notFound,
   metricsMiddleware,
+  createServiceError,
   uuidv7,
   isUuidV7,
   requireOptionalUuidV7

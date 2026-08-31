@@ -1,4 +1,4 @@
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const { requireOptionalUuidV7 } = require('@pulsecore/common');
 
 const validateNewAppointment = ({ patientId, doctorId, date, timeSlot, reasonForVisit }) => {

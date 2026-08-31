@@ -1,6 +1,6 @@
 const { logger } = require('@pulsecore/common');
 const doctorRepository = require('../repositories/doctorRepository');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const doctorAccessPolicy = require('../policies/doctorAccessPolicy');
 const doctorProfileCache = require('../cache/doctorProfileCache');
 

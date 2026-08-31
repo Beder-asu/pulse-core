@@ -1,4 +1,4 @@
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 
 const operationalRoles = new Set(['ADMIN', 'STAFF', 'DOCTOR', 'SYSTEM']);
 const forbidden = () => { throw createServiceError('User role not authorized', 403); };

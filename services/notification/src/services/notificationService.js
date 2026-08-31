@@ -1,6 +1,6 @@
 const notificationRepository = require('../repositories/notificationRepository');
 const { formatAppointmentMessage } = require('../formatters/appointmentNotificationFormatter');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 
 const createNotificationService = ({ notifications }) => ({
   createAppointmentNotification: async ({ eventId, patientId, patientName, doctorName, date, timeSlot }) => {

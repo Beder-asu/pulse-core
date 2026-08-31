@@ -1,7 +1,7 @@
 const { logger, uuidv7 } = require('@pulsecore/common');
 const invoiceRepository = require('../repositories/invoiceRepository');
 const { validateNewInvoice, validateInvoicePatientFilter } = require('../validators/invoiceValidator');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const billingAccessPolicy = require('../policies/billingAccessPolicy');
 
 const createInvoiceService = ({ invoices, access, createId, serviceLogger, now }) => ({

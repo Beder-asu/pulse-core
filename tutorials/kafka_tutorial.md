@@ -61,6 +61,6 @@ Kafka is currently used for one production flow: appointments publish hospital e
 2. **Appointment Publisher**
    `services/appointments/src/messaging/producerLifecycle.js` starts and stops the producer for the appointments service. `services/appointments/src/messaging/publishers/appointmentCreatedPublisher.js` publishes `AppointmentCreated` events to the `hospital.events` topic after an appointment is persisted.
 3. **Notification Consumer**
-   `services/notification/src/messaging/consumerLifecycle.js` starts and stops the consumer for the notification service. `services/notification/src/messaging/consumers/hospitalEventsConsumer.js` subscribes to `hospital.events` and turns `AppointmentCreated` messages into persisted notifications.
+   `services/notification/src/server.js` starts `services/notification/src/messaging/consumers/hospitalEventsConsumer.js` after the HTTP server is listening. That consumer subscribes to `hospital.events` and turns `AppointmentCreated` messages into persisted notifications.
 4. **OpenTelemetry Tracing**
    OpenTelemetry instrumentation is loaded before each service starts. HTTP requests are traced today, and Kafka message handling runs inside the instrumented services. If deeper producer-to-consumer trace propagation is needed later, the next step is to explicitly pass trace context in Kafka message headers.

@@ -1,7 +1,7 @@
 const accessTokens = require('./tokenService');
 const refreshTokens = require('./refreshTokenService');
 const refreshTokenRepository = require('../repositories/refreshTokenRepository');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 
 const invalidRefresh = () => createServiceError('Refresh token is invalid or expired', 401);
 

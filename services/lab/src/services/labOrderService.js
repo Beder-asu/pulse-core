@@ -1,7 +1,7 @@
 const { logger } = require('@pulsecore/common');
 const labOrderRepository = require('../repositories/labOrderRepository');
 const { validateNewOrder, validateOrderFilters } = require('../validators/labOrderValidator');
-const { createServiceError } = require('../errors/serviceError');
+const { createServiceError } = require('@pulsecore/common');
 const labAccessPolicy = require('../policies/labAccessPolicy');
 
 const createLabOrderService = ({ orders, access, serviceLogger }) => ({
