@@ -11,8 +11,12 @@
     "db:push": "node scripts/migrate_all.js",
     "db:seed": "node scripts/seed_all.js",
     "db:setup": "npm run db:push && npm run db:seed",
+    "test": "node scripts/run_unit_tests.js",
+    "test:frontend": "npm test --prefix frontend && npm run lint --prefix frontend && npm run build --prefix frontend",
     "test:e2e": "node scripts/e2e_gateway_test.js",
-    "test:security": "node --test scripts/access_policy_test.js && node scripts/security_gateway_test.js"
+    "test:security": "node --test scripts/access_policy_test.js && node scripts/security_gateway_test.js",
+    "compose:check": "docker compose config --quiet",
+    "verify": "npm test && npm run test:frontend && npm run compose:check"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

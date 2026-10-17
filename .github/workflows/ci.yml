@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      POSTGRES_USER: pulsecore_ci
+      POSTGRES_PASSWORD: pulsecore_ci_only
+      JWT_SECRET: pulsecore-ci-jwt-secret-not-for-runtime
+      INTERNAL_SERVICE_SECRET: pulsecore-ci-internal-secret-not-for-runtime
+      DEMO_USER_PASSWORD: pulsecore-ci-demo-password
+      GRAFANA_ADMIN_USER: admin
+      GRAFANA_ADMIN_PASSWORD: pulsecore_ci_only
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run backend and shared tests
+        run: npm test
+
+      - name: Test, lint, and build frontend
+        run: npm run test:frontend
+
+      - name: Validate Docker Compose configuration
+        run: npm run compose:check

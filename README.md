@@ -1,8 +1,12 @@
 # PulseCore Hospital Management System
 
+[![CI](https://github.com/Beder-asu/pulse-core/actions/workflows/ci.yml/badge.svg)](https://github.com/Beder-asu/pulse-core/actions/workflows/ci.yml)
+
 PulseCore is a production-style hospital management system built as a Docker-orchestrated microservice application. It covers the main operational flows of a small medical system: admissions, patient records, appointment booking, lab work, prescriptions, dispensing, billing, notifications, and role-scoped dashboards.
 
 The project is intentionally more than a CRUD demo. It demonstrates how frontend, gateway, authentication, service-owned databases, asynchronous messaging, caching, and observability fit together in one working local stack.
+
+> **Deployment scope:** PulseCore is a local reference architecture, not a hosted medical product. Keeping eight application services plus PostgreSQL, Kafka, Redis, and the observability stack permanently online would add recurring infrastructure cost without strengthening the engineering evidence. The repository therefore prioritizes reproducible Docker startup, automated verification, and an inspectable end-to-end demo path.
 
 ## What This Project Demonstrates
 
@@ -37,21 +41,49 @@ This project utilizes a microservices architecture to ensure domain isolation an
 
 ## Runtime Map
 
-```text
-Browser
-  -> Nginx API Gateway
-      -> React frontend container
-      -> Auth service          -> auth_db
-      -> Patients service      -> patients_db
-      -> Doctors service       -> doctors_db + Redis cache
-      -> Appointments service  -> appointments_db -> Kafka topic hospital.events
-      -> Lab service           -> lab_db
-      -> Pharmacy service      -> pharmacy_db
-      -> Billing service       -> billing_db
-      -> Notification service  -> notification_db <- Kafka consumer group
+```mermaid
+flowchart LR
+    Browser --> Gateway[Nginx API Gateway]
+    Gateway --> Frontend[React frontend]
+    Gateway --> Auth[Auth]
+    Gateway --> Patients[Patients]
+    Gateway --> Doctors[Doctors]
+    Gateway --> Appointments[Appointments]
+    Gateway --> Lab[Lab]
+    Gateway --> Pharmacy[Pharmacy]
+    Gateway --> Billing[Billing]
+    Gateway --> Notifications[Notifications]
 
-Services -> Prometheus / Jaeger / optional Loki logging
+    Auth --> AuthDB[(auth_db)]
+    Patients --> PatientsDB[(patients_db)]
+    Doctors --> DoctorsDB[(doctors_db)]
+    Doctors <--> Redis[(Redis)]
+    Appointments --> AppointmentsDB[(appointments_db)]
+    Lab --> LabDB[(lab_db)]
+    Pharmacy --> PharmacyDB[(pharmacy_db)]
+    Billing --> BillingDB[(billing_db)]
+    Notifications --> NotificationsDB[(notification_db)]
+
+    Appointments -->|AppointmentCreated| Kafka[(Kafka)]
+    Kafka --> Notifications
+    Auth & Patients & Doctors & Appointments & Lab & Pharmacy & Billing & Notifications --> Observability[Prometheus + Jaeger]
 ```
+
+## Verification
+
+The clean-checkout verification path covers:
+
+| Check | Current evidence |
+| --- | --- |
+| Backend and shared policy/service behavior | 40 passing Node assertions across 13 test files |
+| Frontend identity behavior | 2 passing Node assertions |
+| Frontend quality gate | Oxlint and production Vite build pass |
+| Compose definition | Parsed and validated without starting paid infrastructure |
+| Production dependency audit | 0 vulnerabilities in both backend and frontend production dependency sets |
+| Full local workflow | Gateway script covers health, authentication, patient creation, appointments, lab, pharmacy, billing, persistence, and Kafka-backed notifications |
+| Security workflow | Role scoping, forged internal headers, refresh rotation, replay revocation, and logout |
+
+GitHub Actions runs the backend tests, frontend tests/lint/build, and Compose validation on every push and pull request. The full gateway and security workflows require the local Docker stack and intentionally remain operator-run integration checks.
 
 ## Getting Started
 
@@ -76,6 +108,25 @@ docker compose up --build -d
 On a fresh Docker volume, Postgres creates all service databases and the `db-setup` job pushes Prisma schemas and seeds demo data before the app services start. `db-setup` is expected to show `Exited (0)` after it finishes; it is an initialization job, not a long-running server. Once running, the production frontend is available at `http://localhost`, with API services behind the same Nginx gateway at `http://localhost/api/*`.
 
 Before each schema push, `db-setup` installs the PostgreSQL `uuid_generate_v7()` function in that service database. Seed records use fixed UUIDv7 values so references remain coherent across the otherwise isolated databases. New database rows and application-generated Kafka event IDs also use UUIDv7.
+
+### Verify a Clean Checkout
+
+Install both lockfiles, then run the portable verification command:
+
+```bash
+npm ci
+npm ci --prefix frontend
+npm run verify
+```
+
+`npm test` generates the correct Prisma client before each service test group. This avoids relying on generated files or a developer's previous local state.
+
+With the Docker stack running, verify the complete gateway and security flows:
+
+```bash
+npm run test:e2e
+npm run test:security
+```
 
 ### Observability Ports
 - **Grafana:** `http://localhost:3000` (uses the local Grafana credentials configured in Compose)

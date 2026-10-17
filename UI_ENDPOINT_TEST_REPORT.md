@@ -44,7 +44,7 @@ The persistence test created patient `PAT-E2E-20260825081159`, restarted the app
 - Loki application shipping is disabled unless `ENABLE_LOKI_LOGGING=true`; container stdout remains available through Docker logs.
 - Local Compose uses documented development credentials and should receive external secrets before deployment.
 - The local gateway serves HTTP only; TLS termination is not configured.
-- Docker dependency installation reports backend dependency vulnerabilities that require a controlled upgrade rather than a forced audit rewrite.
+- Production dependency audits are clean. Remaining npm findings are confined to development tooling in the nodemon and Tailwind CSS dependency trees; resolving them requires controlled major-version upgrades rather than a forced audit rewrite.
 - A connected browser automation surface was unavailable for the final visual screenshot pass; API, build, container, and user-led browser checks were completed.
 
 ## Useful URLs
