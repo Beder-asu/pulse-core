@@ -73,6 +73,9 @@ const TopBar = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <span className="hidden lg:inline-flex rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+          Synthetic demo data
+        </span>
         <div className="relative" ref={notificationsRef}>
           <button
             type="button"

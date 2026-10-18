@@ -8,6 +8,22 @@ The project is intentionally more than a CRUD demo. It demonstrates how frontend
 
 > **Deployment scope:** PulseCore is a local reference architecture, not a hosted medical product. Keeping eight application services plus PostgreSQL, Kafka, Redis, and the observability stack permanently online would add recurring infrastructure cost without strengthening the engineering evidence. The repository therefore prioritizes reproducible Docker startup, automated verification, and an inspectable end-to-end demo path.
 
+## Verified Local Walkthrough
+
+These screens were captured from the Docker Compose stack after the gateway E2E and security workflows passed. The records shown come from PostgreSQL-backed seed data and the automated cross-service test run.
+
+### Role-scoped admin dashboard
+
+![PulseCore admin dashboard showing live operational summaries and Kafka-backed notifications](docs/screenshots/admin-dashboard.png)
+
+### Laboratory workflow
+
+![PulseCore laboratory dashboard showing completed and pending orders](docs/screenshots/laboratory.png)
+
+### Pharmacy workflow
+
+![PulseCore pharmacy dashboard showing inventory, prescriptions, and dispensing status](docs/screenshots/pharmacy.png)
+
 ## What This Project Demonstrates
 
 - **Microservice boundaries:** Each domain is owned by a separate Express service with its own Prisma schema and PostgreSQL database.
@@ -80,8 +96,8 @@ The clean-checkout verification path covers:
 | Frontend quality gate | Oxlint and production Vite build pass |
 | Compose definition | Parsed and validated without starting paid infrastructure |
 | Production dependency audit | 0 vulnerabilities in both backend and frontend production dependency sets |
-| Full local workflow | Gateway script covers health, authentication, patient creation, appointments, lab, pharmacy, billing, persistence, and Kafka-backed notifications |
-| Security workflow | Role scoping, forged internal headers, refresh rotation, replay revocation, and logout |
+| Full local workflow | Passed locally on 2026-10-18: health, authentication, patient creation, appointments, lab, pharmacy, billing, persistence, and Kafka-backed notifications |
+| Security workflow | Passed locally on 2026-10-18: role scoping, forged internal headers, refresh rotation, replay revocation, and logout |
 
 GitHub Actions runs the backend tests, frontend tests/lint/build, and Compose validation on every push and pull request. The full gateway and security workflows require the local Docker stack and intentionally remain operator-run integration checks.
 

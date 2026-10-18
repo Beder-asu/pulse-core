@@ -40,6 +40,8 @@ Thumbs.db
 *.sw?
 .agents/
 .codex/
+.playwright-cli/
+output/
 
 # Legacy generated design export
 stitch_nexus_medical_management_system/

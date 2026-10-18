@@ -2,7 +2,7 @@
 
 ## Scope
 
-This report reflects the current file-based implementation and the local Docker verification completed on 2026-08-25. It replaces the earlier prototype report that described dummy authentication, mock pages, and a temporary Vite preview container.
+This report reflects the current file-based implementation, the original local Docker verification completed on 2026-08-25, and a fresh clean-stack verification and browser walkthrough completed on 2026-10-18. It replaces the earlier prototype report that described dummy authentication, mock pages, and a temporary Vite preview container.
 
 ## Verified working
 
@@ -18,6 +18,8 @@ This report reflects the current file-based implementation and the local Docker 
 - Grafana provisions the `PulseCore Hospital Services` dashboard and healthy Prometheus/Loki data sources.
 - Jaeger receives traces from all eight application services.
 - The frontend production build and lint completed without frontend errors.
+- The gateway E2E and security workflows passed against a freshly built Docker Compose stack on 2026-10-18.
+- Authenticated screenshots of the admin, laboratory, and pharmacy workflows were captured from that running stack and are published in `docs/screenshots`.
 
 ## Primary routes
 
@@ -45,7 +47,6 @@ The persistence test created patient `PAT-E2E-20260825081159`, restarted the app
 - Local Compose uses documented development credentials and should receive external secrets before deployment.
 - The local gateway serves HTTP only; TLS termination is not configured.
 - Production dependency audits are clean. Remaining npm findings are confined to development tooling in the nodemon and Tailwind CSS dependency trees; resolving them requires controlled major-version upgrades rather than a forced audit rewrite.
-- A connected browser automation surface was unavailable for the final visual screenshot pass; API, build, container, and user-led browser checks were completed.
 
 ## Useful URLs
 
